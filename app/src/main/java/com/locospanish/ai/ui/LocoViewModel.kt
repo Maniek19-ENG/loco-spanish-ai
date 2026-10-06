@@ -8,7 +8,6 @@ import com.locospanish.ai.data.*
 import com.locospanish.ai.model.*
 import com.locospanish.ai.realtime.*
 import com.locospanish.ai.tutor.PromptBuilder
-import com.locospanish.ai.tutor.Variety
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.util.UUID
@@ -33,7 +32,6 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
     private var current: Session? = null
     private var timer: Job? = null
     private var saveSettingsJob: Job? = null
-    private var lastAngle = ""
     private var finishing = false
     private var mutedBeforeEditing = false
     init {
@@ -58,8 +56,7 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
         if (!settings.value.freeTierConfirmed) { notice.value = "Potwierdź w Ustawieniach, że projekt klucza ma Free Tier i wyłączone płatności."; return }
         seconds.value = 0; notice.value = ""; active.value = true
         current = Session(UUID.randomUUID().toString(), System.currentTimeMillis(), scenarioId = selected.value, level = settings.value.level)
-        lastAngle = Variety.angle(selected.value, lastAngle)
-        realtime.start(settings.value, access.read(), selected.value, memory(), true, lastAngle)
+        realtime.start(settings.value, access.read(), selected.value, PromptBuilder.memory(library.value))
         timer = viewModelScope.launch {
             var last = SystemClock.elapsedRealtime(); var elapsed = 0L
             while (isActive && active.value) {
@@ -71,7 +68,6 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
-    private fun memory() = PromptBuilder.memory(Library(library.value.sessions.filter { it.id != current?.id }))
     private fun snapshot(): Session? = current?.copy(durationSeconds = seconds.value, transcript = voice.value.transcript,
         learning = voice.value.learning, completed = voice.value.completed)
     private suspend fun checkpoint() { snapshot()?.takeIf { it.durationSeconds > 0 }?.let {
@@ -87,7 +83,7 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
             finally { current = null; finishing = false }
         }
     }
-    fun retry() { if (active.value) realtime.start(settings.value, access.read(), selected.value, memory(), false, lastAngle) }
+    fun retry() { if (active.value) realtime.start(settings.value, access.read(), selected.value, PromptBuilder.memory(library.value), false) }
     fun editPersonality() {
         if (!active.value || editingPersonality.value) return
         mutedBeforeEditing = voice.value.muted

@@ -19,24 +19,24 @@ data class Settings(val level: Level = Level.A1, val voice: String = "Kore", val
 data class Scenario(val id: String, val title: String, val level: Level, val goal: String)
 object Scenarios {
     val all = listOf(
-        Scenario("daily", "Codzienna rozmowa", Level.A1, "Luźna pogawędka o dniu, planach i wszystkim, co Ci przyjdzie do głowy."),
-        Scenario("bar", "Bar", Level.A1, "Wieczór w barze: zamów coś, pogadaj z barmanem, zobacz, co się wydarzy."),
-        Scenario("restaurant", "Restauracja", Level.A1, "Kolacja w restauracji — menu, polecenia kelnera i niespodzianki przy stole."),
-        Scenario("cafe", "Kawiarnia", Level.A1, "Kawa i przekąska, a przy okazji rozmowa z baristą lub sąsiadem przy stoliku."),
-        Scenario("shopping", "Zakupy", Level.A1, "Zakupy: ceny, rozmiary, targowanie się i rady sprzedawcy."),
-        Scenario("hotel", "Hotel", Level.A1, "Hotel: meldunek, prośby i drobne kłopoty, które zawsze się zdarzają."),
-        Scenario("airport", "Lotnisko", Level.A2, "Podróż: lotnisko, bagaż, bramki i nieplanowane zmiany."),
-        Scenario("taxi", "Taxi", Level.A1, "Jazda taksówką z kierowcą, który ma swoje zdanie o mieście."),
-        Scenario("people", "Poznawanie ludzi", Level.A1, "Poznajesz kogoś nowego — rozmowa pójdzie tam, gdzie Was poniesie."),
-        Scenario("date", "Randka", Level.A2, "Pierwsza randka: luz, żarty i szukanie wspólnych tematów."),
-        Scenario("rent", "Wynajem mieszkania", Level.B1, "Szukasz mieszkania — pytania, negocjacje i szczegóły umowy."),
-        Scenario("interview", "Rozmowa kwalifikacyjna", Level.B1, "Rozmowa o pracę: pytania, na które trzeba odpowiedzieć na gorąco."),
-        Scenario("employer", "Telefon do pracodawcy", Level.A2, "Telefon w sprawie pracy: krótko, konkretnie i czasem pod presją."),
-        Scenario("hotelwork", "Praca w hotelu", Level.A2, "Praca w recepcji: goście z prośbami, skargami i pytaniami."),
-        Scenario("maintenance", "Utrzymanie hotelu", Level.A2, "Utrzymanie hotelu: awarie, naprawy i rozmowy z ekipą."),
-        Scenario("electronics", "Inżynier elektronik", Level.B2, "Elektronika: diagnoza usterek, testy i tłumaczenie problemu po ludzku."),
-        Scenario("emergency", "Sytuacja awaryjna", Level.A2, "Symulacja nagłej sytuacji: poproś o pomoc i wyjaśnij, co się stało."),
-        Scenario("free", "Luźna rozmowa", Level.A1, "Bez scenariusza — wybierz temat albo pozwól LOCO coś zaproponować.")
+        Scenario("daily", "Codzienna rozmowa", Level.A1, "Porozmawiaj o swoim dniu albo wybierz dowolny temat."),
+        Scenario("bar", "Bar", Level.A1, "Zamów napój i poproś o rachunek."),
+        Scenario("restaurant", "Restauracja", Level.A1, "Zamów posiłek i zapytaj o składniki."),
+        Scenario("cafe", "Kawiarnia", Level.A1, "Zamów kawę i przekąskę."),
+        Scenario("shopping", "Zakupy", Level.A1, "Zapytaj o cenę i rozmiar."),
+        Scenario("hotel", "Hotel", Level.A1, "Zamelduj się i zapytaj o śniadanie."),
+        Scenario("airport", "Lotnisko", Level.A2, "Odpraw bagaż i znajdź bramkę."),
+        Scenario("taxi", "Taxi", Level.A1, "Podaj adres i zapytaj o cenę."),
+        Scenario("people", "Poznawanie ludzi", Level.A1, "Poznaj imię, pracę i zainteresowania rozmówcy."),
+        Scenario("date", "Randka", Level.A2, "Porozmawiaj o zainteresowaniach i zaproponuj spotkanie."),
+        Scenario("rent", "Wynajem mieszkania", Level.B1, "Zapytaj o czynsz, kaucję i warunki najmu."),
+        Scenario("interview", "Rozmowa kwalifikacyjna", Level.B1, "Przedstaw doświadczenie i dostępność."),
+        Scenario("employer", "Telefon do pracodawcy", Level.A2, "Zapytaj o ofertę pracy i termin spotkania."),
+        Scenario("hotelwork", "Praca w hotelu", Level.A2, "Przyjmij zgłoszenie gościa i zaoferuj pomoc."),
+        Scenario("maintenance", "Utrzymanie hotelu", Level.A2, "Opowiedz o naprawach i doświadczeniu w utrzymaniu hotelu."),
+        Scenario("electronics", "Inżynier elektronik", Level.B2, "Omów diagnozę usterki i testy układu elektronicznego."),
+        Scenario("emergency", "Sytuacja awaryjna", Level.A2, "W symulacji poproś o pomoc i podaj lokalizację."),
+        Scenario("free", "Luźna rozmowa", Level.A1, "Wybierz temat i ćwicz naturalną rozmowę.")
     )
     fun get(id: String) = all.firstOrNull { it.id == id } ?: all.first()
 }

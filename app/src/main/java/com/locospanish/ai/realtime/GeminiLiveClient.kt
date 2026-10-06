@@ -28,21 +28,21 @@ class GeminiLiveClient(
     private val cancelledTools = mutableSetOf<String>()
     private val completionIds = mutableSetOf<String>()
 
-    fun start(settings: Settings, key: String, scenario: String, memory: String, reset: Boolean = true, angle: String = "") {
+    fun start(settings: Settings, key: String, scenario: String, memory: String, reset: Boolean = true) {
         close(); val generation = epoch
         if(reset) { mutable.value = VoiceState(); toolIds.clear(); completionIds.clear() }
         transcript = GeminiTranscript(); cancelledTools.clear()
         mutable.update { it.copy(phase = VoicePhase.CONNECTING, connected = false, message = "Łączę z Gemini Live…") }
         if(key.isBlank()) { fail("Wpisz klucz Gemini w Ustawieniach."); return }
         fun dispatch(action: () -> Unit) { scope.launch { if(epoch == generation) action() } }
-        val resume = if(reset) "" else state.value.transcript.takeLast(12).joinToString("\n") { "${it.role}: ${it.text.take(200)}" }
+        val resume = if(reset) "" else state.value.transcript.takeLast(6).joinToString("\n") { "${it.role}: ${it.text.take(250)}" }
         val request = Request.Builder().url(endpoint).header("x-goog-api-key",key).build()
         socket = http.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) { dispatch {
-                webSocket.send(GeminiProtocol.setup(settings,scenario,(if (resume.isEmpty()) memory else "Bieżąca rozmowa (kontynuuj, nie powtarzaj tych wypowiedzi):\n" + resume + "\n" + memory).take(3600)).toString())
+                webSocket.send(GeminiProtocol.setup(settings,scenario,("Ostatnia rozmowa:\n" + resume + "\nWcześniejsza nauka:\n" + memory).take(2400)).toString())
             } }
             override fun onMessage(webSocket: WebSocket, text: String) { dispatch {
-                try { event(JsonParser.parseString(text).asJsonObject, generation, reset, settings, scenario, angle) }
+                try { event(JsonParser.parseString(text).asJsonObject, generation, reset, settings, scenario) }
                 catch(_: SecurityException) { fail("Brak dostępu do mikrofonu. Włącz uprawnienie w ustawieniach telefonu.") }
                 catch(_: Exception) { fail("Odebrano nieprawidłową odpowiedź Gemini. Spróbuj ponownie.") }
             } }
@@ -53,7 +53,7 @@ class GeminiLiveClient(
         })
         timeout = scope.launch { delay(25000); if(epoch == generation && !state.value.connected) fail("Upłynął czas łączenia. Sprawdź internet, klucz i dostępność Gemini.") }
     }
-    private fun event(e: JsonObject, generation: Int, reset: Boolean, settings: Settings, scenario: String, angle: String) {
+    private fun event(e: JsonObject, generation: Int, reset: Boolean, settings: Settings, scenario: String) {
         if(e.has("error")) { val error = e.getAsJsonObject("error"); fail(GeminiProtocol.problem(error.get("code")?.asInt ?: 0,error.str("message"))); return }
         if(e.has("setupComplete")) {
             timeout?.cancel(); mutable.update { it.copy(connected = true,phase = VoicePhase.LISTENING,message = "Gemini Live • rozmowa przez internet") }
@@ -68,7 +68,7 @@ class GeminiLiveClient(
             }, onError = { scope.launch { if(epoch == generation) fail("Mikrofon lub głośnik jest niedostępny. Sprawdź uprawnienia i spróbuj ponownie.") } },
                 onPlaying = { playing -> scope.launch { if(epoch == generation && state.value.connected) mutable.update { it.copy(phase = if(playing) VoicePhase.SPEAKING else VoicePhase.LISTENING) } } })
             device.mute(state.value.muted)
-            command(GeminiProtocol.startCommand(settings, scenario, reconnect = !reset, angle = angle))
+            command(GeminiProtocol.startCommand(settings, scenario, reconnect = !reset))
         }
         e.getAsJsonObject("serverContent")?.let { content ->
             mutable.value = transcript.apply(state.value,content)
