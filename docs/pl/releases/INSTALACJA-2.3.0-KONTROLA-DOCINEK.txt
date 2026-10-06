@@ -1,0 +1,14 @@
+LOCO 2.3.0 — SCENARIUSZE I AUTOMATYCZNA MOWA
+
+Zainstaluj aktualizację z tego samego pliku APK, bez odinstalowywania.
+
+Każdy z 18 scenariuszy ma osobny plan i słownictwo. Hotel zaczyna od rezerwacji, pokoju i klucza. Poprawne próby słów scenariusza są zapisywane i aktualizują następny cel. Usunięto ogólne przykłady jedzenia z instrukcji charakteru.
+
+Nie ma przycisków ES/PL. Polski komentarz i hiszpański wzór mają być osobnymi wypowiedziami. Wzory są pełnymi krótkimi zdaniami. Całą mowę obsługuje ten sam głos Gemini; polski systemowy syntezator nie odczytuje hiszpańskich słów.
+
+Docinka jest częścią zwykłych odpowiedzi, a intensywność regulują ustawienia. Słowa z ćwiczenia nie przełączają automatycznie roastu.
+
+Weryfikacja: kompilacja i lint przeszły, 47 testów jednostkowych i 10 testów klienta w emulatorze bez błędów. Hotel, Kawiarnia, Taxi i Elektronika sprawdzone w rzeczywistym API LIVE; nagrania w probki-scenariusze-final. Niezależna ocena fonetyczna nie została zakończona — nie potwierdzono perfekcyjnej wymowy ani mikrofonu na telefonie użytkownika.
+
+Wersja produktu pozostaje 2.3.0, kompilacja 24. Podpis zgodny. Kopia wcześniejszego pliku w Kopia-przed-scenariuszami-2.3.0.
+SHA-256: 9B7AA931958DECD5C004B5E89F3274C033843D5CEE43BF49AB95A86BF387335F

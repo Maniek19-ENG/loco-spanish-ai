@@ -1,0 +1,23 @@
+LOCO 2.2.0 NEON ROAST PL–ES
+
+APK: LOCO-Spanish-Gemini-2.2.0-NEON-ROAST-PL-ES.apk
+Zainstaluj jako aktualizację, bez odinstalowywania obecnego LOCO.
+
+Aby mieć mocny styl z filmików:
+1. Wybierz osobowość Roast Tutor.
+2. Ustaw mocne przekleństwa i włącz roast.
+3. Wyłącz „Tryb poprzedniej wersji 2.1.1”, jeśli go używasz.
+4. Wybierz poziom A1–C2 i rozpocznij rozmowę.
+
+Źródła: LOCO-Neon-Roast-PL-ES.
+Zachowano wygląd neonowy, wybrany śmiech i Bluetooth.
+Zmiany nie resetują zapisanych ustawień.
+
+Kompilacja release i 30 testów jednostkowych przeszły.
+Podpis nowego APK jest identyczny jak NEON LIVE; versionCode wzrósł z 18 do 19.
+Nie wykonano rozmowy próbnej ani odsłuchu na fizycznym telefonie.
+
+SHA-256 APK:
+2477926C1D928CD2A928AE3BE0AC920839B6AA3634F457AB089B82A466F2BEC7
+
+Pełna kontrola lint i ponowne pakowanie nie zakończyły się: odmowa dostępu do plików roboczych. Dostarczony APK jest wcześniej utworzonym, zweryfikowanym pakietem z ostatecznym kodem.

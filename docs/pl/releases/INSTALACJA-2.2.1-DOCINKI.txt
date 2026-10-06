@@ -1,0 +1,17 @@
+LOCO 2.2.1 — DOCINKI
+
+Nowe APK instaluje się jako aktualizacja. Nie odinstalowuj obecnego LOCO.
+
+Nowy styl włącza się automatycznie po aktualizacji: Roast Tutor, mocne przekleństwa i maksymalny roast. Poprzednie ustawienia charakteru są zapisane, a późniejsze własne zmiany nie są resetowane.
+
+Docinki mają pojawiać się również po poprawnych odpowiedziach i zwykłych pytaniach, a nie wyłącznie po błędzie. System przypomina o stylu przed każdą ocenioną odpowiedzią głosową. Niepewnego audio nie wyśmiewa.
+
+POWRÓT DO OSTATNIEJ WERSJI
+Ustawienia → Wróć do ostatniej wersji 2.2.0 → włącz → rozpocznij nową rozmowę.
+Wracają instrukcje i charakter sprzed tej aktualizacji. Nie ma powrotu do 2.1.1.
+Wyłączenie przełącznika ponownie włącza nowe docinki.
+Jest to powrót do zachowania 2.2.0 wewnątrz nowej aplikacji, bez odinstalowywania APK i bez kasowania danych.
+
+Testy kodu nie potwierdzają jakości głosu ani puent w prawdziwej rozmowie. Nie wykonano odsłuchu na telefonie.
+
+Kompilacja, 33 testy i kontrola Androida przeszły poprawnie. Podpis jest zgodny z poprzednimi APK. SHA-256: 9E46A6ED61FAE9F2D871E0721C4713F73AB4B19AA72878254681C0A4D1D0B8BC.

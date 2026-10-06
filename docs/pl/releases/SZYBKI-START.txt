@@ -1,0 +1,21 @@
+LOCO SPANISH AI — NOWA WERSJA GEMINI
+
+1. Przenieś LOCO-Spanish-Gemini.apk na telefon i otwórz go w Moich plikach / Plikach.
+2. Zainstaluj aplikację lub zaktualizuj wcześniejsze LOCO.
+3. Otwórz LOCO → Ustawienia → OTWÓRZ GOOGLE AI STUDIO.
+4. Utwórz klucz w projekcie FREE TIER, BEZ płatnych rozliczeń.
+   Nie wybieraj Set up billing ani Upgrade. Abonament Gemini Pro nie jest kluczem API.
+5. Wklej klucz do Ustawień LOCO, zapisz i potwierdź sprawdzenie Free Tier.
+6. Wybierz poziom A1 i scenariusz. Naciśnij ROZPOCZNIJ ROZMOWĘ, zezwól na mikrofon.
+
+Komputer podczas rozmowy NIE jest potrzebny. Internet JEST potrzebny.
+Nie używaj starego tokenu backendu ani klucza OpenAI.
+Nie uruchamiaj starego skrótu URUCHOM LOCO — dotyczył wersji OpenAI.
+Nie przesyłaj klucza w czacie ani innym osobom.
+
+Bezpłatne użycie wymaga Free Tier bez płatnych rozliczeń. Limity ustala Google.
+Po ich wyczerpaniu trzeba poczekać. Aplikacja nie włącza płatności, ale nie potrafi
+sprawdzić planu klucza. Klucz projektu z płatnymi rozliczeniami może naliczać opłaty.
+
+Android 8.0 i nowsze. Odpowiedź AI zależy od jakości internetu i dostępności Google.
+Pełna specyfikacja: SPECYFIKACJA.md. Wyniki testów: WERYFIKACJA.md.

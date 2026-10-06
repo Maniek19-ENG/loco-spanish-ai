@@ -1,0 +1,28 @@
+LOCO SPANISH AI 2.1 — CHARAKTER I DŁUŻSZE LEKCJE
+
+AKTUALIZACJA NA TELEFONIE
+Wyślij przez Quick Share plik LOCO-Spanish-Gemini-2.1.apk.
+Otwórz go na telefonie i wybierz aktualizację. Nie odinstalowuj wcześniejszego LOCO:
+aktualizacja zachowuje klucz, historię i Twoje dotychczasowe ustawienia.
+
+OSTRY STYL
+Na ekranie Start wybierz ZMIEŃ CHARAKTER I PRZEKLEŃSTWA.
+Gotowy profil Roast Tutor włącza mocny roast i mocne przekleństwa.
+Jeżeli chcesz maksimum, ustaw sarkazm, bezczelność i roast na 100,
+pozostaw roast włączony i wybierz przekleństwa Mocne.
+Korektę ustaw niezależnie. Profil Nauczyciel pozwala wrócić do spokojnej nauki.
+Zmiany zapisują się automatycznie; aplikacja nie zmienia ustawień za Ciebie.
+
+Osobowość można zmieniać również w trakcie sesji. Rozmowa i mikrofon są wtedy
+wstrzymane. ZASTOSUJ I WRÓĆ DO ROZMOWY wznawia połączenie z nowym charakterem,
+zachowując historię. Ponowne połączenie wymaga chwili i dostępu do internetu.
+
+DŁUŻSZA NAUKA
+Przedstawienie się rozpoczyna lekcję. AI ma rozwijać temat, zadawać kolejne pytania,
+zmieniać role i przechodzić do dalszych ćwiczeń. Jest też przycisk Dalej.
+Usunięto limit 20 minut nakładany przez LOCO. Nadal obowiązują limity Google.
+Wyjście do innej aplikacji kończy i zapisuje sesję, tak jak wcześniej.
+
+Roast i przekleństwa są generowane przez Gemini, więc dokładne słowa mogą się
+różnić między rozmowami. Podgląd tekstowy i rozmowa głosowa korzystają z tych
+samych reguł osobowości, ale z różnych modeli Gemini.

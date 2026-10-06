@@ -1,0 +1,21 @@
+LOCO Spanish AI 2.1.1 ROAST — baza 2.1
+
+Plik do telefonu: LOCO-Spanish-Gemini-2.1.1-ROAST.apk
+
+Prześlij sam APK przez Quick Share i otwórz go na telefonie. Zainstaluj jako
+aktualizację. Nie odinstalowuj obecnej aplikacji, jeśli chcesz zachować klucz,
+historię i ustawienia.
+
+Ta wersja została zbudowana od nowa z archiwum źródłowego 2.1. Zachowuje jej
+interfejs, obsługę mikrofonu, głos, scenariusze i postępy. Nie zawiera kodu
+poprzednich wydań 2.2.
+
+Po pierwszym uruchomieniu aktualizacji profil ustawia się na Roast Tutor:
+sarkazm 100, bezczelność 100, roast 100, mocne przekleństwa. Późniejsze zmiany
+użytkownika są zapisywane i nie resetują się ponownie.
+
+LOCO prowadzi swobodną rozmowę. Na pytanie odpowiada, na zaczepkę odpowiada
+zaczepką, a przy rzeczywistej pomyłce rozwija szyderczy żart z jej znaczenia.
+Nie wymaga przedstawiania się ani powtarzania gotowych zdań.
+
+Aplikacja wymaga internetu, klucza Gemini i dostępnego limitu API.
