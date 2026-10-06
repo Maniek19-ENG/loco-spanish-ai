@@ -30,10 +30,11 @@ object PersonalityEngine {
         else -> "Bez ceregieli"
     }
 
-    fun opening(value: Personality, scenario: String, reconnect: Boolean): String {
+    fun opening(value: Personality, scenario: String, reconnect: Boolean, angle: String = ""): String {
+        val hint = if (angle.isBlank()) "" else " Inspiracja na start (luźna, nie obowiązkowa): $angle. Otwórz inaczej niż w poprzednich rozmowach."
         if (reconnect) return "Kontynuuj dokładnie bieżący wątek rozmowy w scenariuszu $scenario. Nie witaj ponownie, nie wracaj do przedstawiania się i nie zaczynaj lekcji od początku."
-        if (!maximum(value)) return "Rozpocznij naturalną rozmowę w scenariuszu $scenario. Użytkownik może od razu zapytać o cokolwiek."
-        return "Rozpocznij naturalną rozmowę w scenariuszu $scenario jako bezczelny, wulgarny kumpel. Rzuć świeżą sytuacyjną zaczepkę z mocnym polskim przekleństwem, ale nie udawaj błędu użytkownika. Daj jedno krótkie zadanie po hiszpańsku dopasowane do scenariusza i poczekaj na odpowiedź. Użytkownik może też zapytać o co chce; najpierw odpowiedz na jego pytanie."
+        if (!maximum(value)) return "Rozpocznij naturalną rozmowę w scenariuszu $scenario. Użytkownik może od razu zapytać o cokolwiek.$hint"
+        return "Rozpocznij naturalną rozmowę w scenariuszu $scenario jako bezczelny, wulgarny kumpel. Rzuć świeżą sytuacyjną zaczepkę z mocnym polskim przekleństwem, ale nie udawaj błędu użytkownika. Daj jedno krótkie zadanie po hiszpańsku dopasowane do scenariusza i poczekaj na odpowiedź. Użytkownik może też zapytać o co chce; najpierw odpowiedz na jego pytanie.$hint"
     }
 
     /** The same behavior controls live voice and the personality preview. */
