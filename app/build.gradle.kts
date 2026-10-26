@@ -42,11 +42,6 @@ android {
             versionNameSuffix = "-TEST"
             manifestPlaceholders["appLabel"] = "LOCO TEST"
         }
-        // Slim side-by-side copy for downloading straight to a phone; omits the 82 MB rollback installer.
-        create("phone") {
-            initWith(getByName("debug"))
-            matchingFallbacks += listOf("debug")
-        }
         release {
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("locoRelease")
             isDebuggable = false
@@ -58,9 +53,6 @@ android {
     }
     testOptions { unitTests.isReturnDefaultValues = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-}
-androidComponents {
-    onVariants(selector().withBuildType("phone")) { it.androidResources.ignoreAssetsPatterns.add("loco-*.apk") }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {

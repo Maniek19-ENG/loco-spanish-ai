@@ -37,13 +37,20 @@ jobs:
           "$SDKM" --install "platform-tools"
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests, lint, debug APK, test APK
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleAndroidTest assemblePhone
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleAndroidTest
       - name: Publish test APK as a direct download (pre-release "loco-test")
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/claude/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/phone/app-phone.apk LOCO-TEST.apk && ls -l LOCO-TEST.apk
+          # The phone copy drops the 82 MB rollback installer (useless in a side-by-side test app) and is re-signed with the same debug key.
+          cp app/build/outputs/apk/debug/app-debug.apk slim.apk
+          zip -q -d slim.apk 'assets/loco-*.apk'
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BT/zipalign" -f -p 4 slim.apk aligned.apk
+          "$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out LOCO-TEST.apk aligned.apk
+          "$BT/apksigner" verify LOCO-TEST.apk
+          ls -l LOCO-TEST.apk
           NOTES="Testowa wersja LOCO TEST (podpis debug). Instaluje się obok zwykłej LOCO, nie zastępuje jej. Commit ${GITHUB_SHA::7}. Bez testu prawdziwej rozmowy z Gemini."
           if gh release view loco-test >/dev/null 2>&1; then
             gh release upload loco-test LOCO-TEST.apk --clobber
