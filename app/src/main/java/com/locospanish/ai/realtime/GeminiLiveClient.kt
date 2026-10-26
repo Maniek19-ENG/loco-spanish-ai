@@ -277,7 +277,9 @@ class GeminiLiveClient(
                     val pcm = Base64.decode(data.str("data"),Base64.DEFAULT)
                     val currentUser = state.value.transcript.lastOrNull { it.role == "user" }
                     // Only an unassessed draft is held back; the assessed reply streams at once instead of waiting for the whole generation.
-                    if(deliveringTool || streamHalted || holdForRoast() || (!controlTurn && currentUser != null && assessedUserId != currentUser.id)) {
+                    // A chunk whose text already contradicts the grade or the card is never played.
+                    if(!streamHalted && streamedReplyContradicts()) { streamHalted=true;if(streamedBytes>0) audio?.interrupt() }
+                    if(deliveringTool || streamHalted || holdForRoast() || (controlTurn && validateLessonSpeech()) || (!controlTurn && currentUser != null && assessedUserId != currentUser.id)) {
                         if(provisionalBytes + pcm.size > 1024 * 1024) { fail("Gemini nie zakończyło oceny wypowiedzi. Spróbuj ponownie."); return }
                         if(provisionalAudio.isEmpty() && streamedBytes==0) bufferedTaskRevision=lessonRevision
                         provisionalAudio.add(pcm); provisionalBytes += pcm.size

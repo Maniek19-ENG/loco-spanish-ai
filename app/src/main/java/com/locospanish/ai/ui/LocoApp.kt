@@ -149,9 +149,11 @@ private val GlassEdge = Brush.linearGradient(listOf(Color(0x40FFFFFF), Color(0x0
     }
 }
 @Composable private fun NeonBackdrop() {
-    val drift by rememberInfiniteTransition(label = "aurora").animateFloat(0f, (2 * PI).toFloat(),
+    // Read only while drawing, so the drifting light never recomposes the screen.
+    val driftState = rememberInfiniteTransition(label = "aurora").animateFloat(0f, (2 * PI).toFloat(),
         infiniteRepeatable(tween(26000, easing = LinearEasing)), label = "drift")
     Canvas(Modifier.fillMaxSize()) {
+        val drift = driftState.value
         drawRect(Brush.verticalGradient(listOf(Color(0xFF070912), Ink, Color(0xFF04050A))))
         fun blob(color: Color, x: Float, y: Float, r: Float) {
             val c = Offset(size.width * x, size.height * y)
