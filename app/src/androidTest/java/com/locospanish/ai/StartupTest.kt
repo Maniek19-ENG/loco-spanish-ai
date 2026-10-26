@@ -50,7 +50,14 @@ class StartupTest {
      for(i in 0 until node.childCount) if(scroll(node.getChild(i))) return true
      return false
     }
+    fun dump(node:AccessibilityNodeInfo?,depth:Int=0) {
+     if(node==null) return
+     android.util.Log.e("LocoDiag","${" ".repeat(depth)}${node.className} text=${node.text} desc=${node.contentDescription} visible=${node.isVisibleToUser} scroll=${node.isScrollable} click=${node.isClickable}")
+     for(i in 0 until node.childCount) dump(node.getChild(i),depth+1)
+    }
+    try {
     withTimeout(30000) { while(button==null || button?.isVisibleToUser!=true) { val root=ins.uiAutomation.rootInActiveWindow;button=find(root);if(button==null || button?.isVisibleToUser!=true) scroll(root);delay(250) } }
+    } catch(e:TimeoutCancellationException) { android.util.Log.e("LocoDiag","window=${ins.uiAutomation.rootInActiveWindow?.packageName} activity=${activity?.isFinishing}");dump(ins.uiAutomation.rootInActiveWindow);throw e }
     var clickable=button
     while(clickable!=null && !clickable!!.isClickable) clickable=clickable!!.parent
     assertTrue("Actual start button must accept click",clickable?.performAction(AccessibilityNodeInfo.ACTION_CLICK)==true)

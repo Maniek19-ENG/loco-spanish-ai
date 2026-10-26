@@ -86,7 +86,9 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
+            adb logcat -c || true
             ./gradlew --no-daemon connectedDebugAndroidTest || touch /tmp/instrumented-failed
+            adb logcat -d -s LocoDiag:E | head -150 || true
             adb logcat -d -b crash | tail -60 || true
             adb install -r app/build/outputs/apk/debug/app-debug.apk >/dev/null 2>&1 || true
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk >/dev/null 2>&1 || true
