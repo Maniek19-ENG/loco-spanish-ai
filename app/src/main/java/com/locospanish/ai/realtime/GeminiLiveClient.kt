@@ -89,7 +89,7 @@ class GeminiLiveClient(
     private var alignmentRetries=0
     private var approvedSpokenScript=""
     private var streamedBytes=0
-    private var streamDeviation=false;streamHalted=false
+    private var streamDeviation=false
     private var streamHalted=false
     private var replyFinalized=false
     private var openingPromptPending=true
