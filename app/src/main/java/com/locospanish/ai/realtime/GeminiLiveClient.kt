@@ -649,7 +649,7 @@ class GeminiLiveClient(
                                     body.addProperty("performance_instruction",ReplyDelivery.performance(settings,body.str("verified_verdict")))
                                     body.addProperty("delivery_instruction",body.str("delivery_instruction")+" spoken_script to sprawdzony szkic odpowiedzi, nie nakaz mechanicznego czytania. Zachowaj planned_roast i końcowe pytanie, ale dopasuj wyjaśnienie do rozmowy. Odegraj puentę głosem według performance_instruction, naturalny krótki półśmiech jest dozwolony bez dopisywania go do transkrypcji. Nie zmieniaj słowa ani pytania.")
                                     approvedSpokenScript=script
-                                    if(settings.level==Level.A1 && !roastIsHelp) prepareNativeReply(script,state.value.transcript.lastOrNull { it.role=="user" }?.id,generation)
+                                    // No system-TTS stand-in: a missing riposte is repaired by Gemini in the same voice.
                                 }
                             }
                         }

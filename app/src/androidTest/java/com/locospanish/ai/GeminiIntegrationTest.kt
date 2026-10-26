@@ -100,8 +100,9 @@ class GeminiIntegrationTest {
             val body=com.google.gson.JsonParser.parseString(socket.sent.first { it.contains("unplayed-draft-roast") && it.contains("toolResponse") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
             assertEquals(joke,body.get("planned_roast").asString)
             assertFalse(body.get("roast_needs_new_idea").asBoolean)
-            withTimeout(2000) { while(audio.nativeTexts.isEmpty()) delay(5) }
-            assertTrue(audio.nativeTexts.single().contains(joke));assertEquals(listOf(96000),audio.packetSizes)
+            delay(150)
+            // The riposte stays in the Gemini voice; no system speech engine reads it.
+            assertTrue(audio.nativeTexts.isEmpty());assertEquals(listOf(96000),audio.packetSizes)
         }
     }
     @Test fun teacherAndSpanishReferenceWaitUntilTheCardIsActuallyPresented()=runBlocking {
@@ -135,7 +136,7 @@ class GeminiIntegrationTest {
             assertEquals("la reserva",audio.words.first())
         }
     }
-    @Test fun missingSpokenCurseUsesTheActualGeneratedRiposteWithoutAnotherGeminiTurn()=runBlocking {
+    @Test fun missingSpokenRiposteIsRepairedInTheSameGeminiVoice()=runBlocking {
         runClient(scenario="hotel",nativeAudio=true) { client,socket,audio ->
             socket.event("{\"setupComplete\":{}}")
             socket.event("{\"serverContent\":{\"turnComplete\":true}}")
@@ -146,14 +147,12 @@ class GeminiIntegrationTest {
             val nativeBody=com.google.gson.JsonParser.parseString(socket.sent.first { it.contains("native-roast") && it.contains("toolResponse") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
             assertEquals("ERROR",nativeBody.get("verified_verdict").asString)
             assertTrue(nativeBody.get("planned_roast").asString.contains("Kurwa"))
-            withTimeout(2000) { while(audio.nativeTexts.isEmpty()) delay(5) }
-            assertTrue(audio.nativeTexts.single().contains("Kurwa"))
-            assertTrue(audio.nativeTexts.single().contains("kuwetę"))
+            delay(150);assertTrue(audio.nativeTexts.isEmpty())
             val commands=socket.sent.count { it.contains("clientContent") }
             socket.event(GeminiProtocol.json("serverContent" to GeminiProtocol.json("outputTranscription" to GeminiProtocol.json("text" to "Jak powiesz po hiszpańsku rezerwacja?"),"modelTurn" to GeminiProtocol.json("parts" to listOf(GeminiProtocol.json("inlineData" to GeminiProtocol.json("mimeType" to "audio/pcm;rate=24000","data" to "AAAAAA==")))),"generationComplete" to true)).toString())
-            withTimeout(1500) { while(8 !in audio.packetSizes) delay(5) }
-            assertTrue(8 in audio.packetSizes);assertFalse(4 in audio.packetSizes)
-            assertEquals(commands,socket.sent.count { it.contains("clientContent") })
+            withTimeout(1500) { while(socket.sent.count { it.contains("clientContent") }==commands) delay(5) }
+            assertTrue(socket.sent.last().contains("Brakuje świeżej"))
+            assertFalse(4 in audio.packetSizes);assertTrue(audio.nativeTexts.isEmpty())
             assertEquals("la reserva",client.state.value.currentWord)
         }
     }
