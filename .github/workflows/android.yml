@@ -24,7 +24,8 @@ jobs:
         run: |
           SDKM="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin | sort -V | tail -1)/sdkmanager"
           yes | "$SDKM" --licenses >/dev/null || true
-          "$SDKM" "platforms;android-37" "platform-tools"
+          "$SDKM" --list 2>/dev/null | grep -o "platforms;android-[0-9A-Za-z.-]*" | sort -u | tail -8 || true
+          "$SDKM" --install "platform-tools"
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests, lint, debug APK, test APK
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleAndroidTest
@@ -64,7 +65,8 @@ jobs:
         run: |
           SDKM="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin | sort -V | tail -1)/sdkmanager"
           yes | "$SDKM" --licenses >/dev/null || true
-          "$SDKM" "platforms;android-37" "platform-tools"
+          "$SDKM" --list 2>/dev/null | grep -o "platforms;android-[0-9A-Za-z.-]*" | sort -u | tail -8 || true
+          "$SDKM" --install "platform-tools"
       - uses: gradle/actions/setup-gradle@v4
       - name: Emulator tests
         uses: reactivecircus/android-emulator-runner@v2
