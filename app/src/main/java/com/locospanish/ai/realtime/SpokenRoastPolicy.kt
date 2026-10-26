@@ -54,7 +54,9 @@ object SpokenRoastPolicy {
         val genericPraise=s.personality.roast>=80 && (
             (terms.size<9 && terms.firstOrNull() in setOf("dobrze","swietnie","brawo","niezle","poprawnie")) ||
             (terms.size<12 && Regex("poprawna odpowiedz|kontynuujmy cwiczenie|bardzo dobrze ci poszlo").containsMatchIn(terms.joinToString(" "))))
-        return candidate.takeUnless { terms.size<4 || weak || sameOpener || staleComparison || genericPraise || reusedMotif || repeated(it,recent) }.orEmpty()
+        // A dry report of the mistake ("pomyliłeś słowo", "to nie to słowo") is not a riposte.
+        val dryReport=Regex("pomyli|pomylil|mylisz|myliles|zle slowo|zla odpowiedz|bledn|niepoprawn|nie odpowiada|to nie (?:to|ta|jest) (?:slowo|odpowiedz)|uczen").containsMatchIn(com.locospanish.ai.tutor.TopicLessons.fold(candidate).replace('ł','l'))
+        return candidate.takeUnless { terms.size<4 || weak || sameOpener || dryReport || staleComparison || genericPraise || reusedMotif || repeated(it,recent) }.orEmpty()
     }
     fun creativeBrief(turn:Int,recent:Collection<String>):String {
         val techniques=listOf("parodia oburzonego rozmówcy: jedna krótka kwestia i absurdalna konsekwencja", "ironiczny komplement zakończony bezczelną puentą", "udawany komunikat z miejsca sceny, który reaguje na dokładną wypowiedź ucznia", "dosłowne znaczenie pomyłki jako komiczna katastrofa w scenie", "cięta riposta na dokładne słowa ucznia, bez zmiany tematu", "teatralne niedowierzanie i zaskakujące porównanie", "krótki dialog dwóch postaci spierających się o absurdalny skutek wpadki", "parodia przesadnie poważnego eksperta, którego wywód kończy uliczna puenta", "szydercza relacja na żywo z sytuacyjnej wpadki", "odwrócenie oczekiwań: zwykły początek, nieoczekiwany i dosadny finał")

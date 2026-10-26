@@ -65,4 +65,9 @@ class SpokenRoastTest {
         assertEquals("",SpokenRoastPolicy.freshPrimary(Settings(),"Kurwa, twoja walizka zamówiła sobie osobny pokój z widokiem na basen.","ERROR",recent))
         assertTrue(SpokenRoastPolicy.freshPrimary(Settings(),"Recepcja dzwoni po ochronę, bo z tą walizką brzmisz jak pierdolony przemytnik ręczników.","ERROR",recent).isNotBlank())
     }
+    @Test fun aDryReportOfTheMistakeIsNotAcceptedAsARiposte() {
+        assertEquals("",SpokenRoastPolicy.freshPrimary(Settings(),"Kurwa, pomyliłeś słowo, to nie jest odpowiedź na rezerwację.","ERROR",emptyList()))
+        assertTrue(SpokenRoastPolicy.freshPrimary(Settings(),"Kurwa, z takim gato recepcja da ci kuwetę zamiast klucza do pokoju.","ERROR",emptyList()).isNotBlank())
+        assertTrue(com.locospanish.ai.realtime.ReplyDelivery.instruction(Settings(),"","ERROR",false,"").contains("wyśmiewa SKUTEK"))
+    }
 }
