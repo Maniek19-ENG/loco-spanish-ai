@@ -3,7 +3,15 @@ package com.locospanish.ai.realtime
 import com.locospanish.ai.model.*
 
 object SpokenRoastPolicy {
-    fun primary(s: Settings, planned: String, verdict: String = "ERROR"): String {
+    // A missing strong word is added in a form the last ripostes did not use, never always the same opener.
+    private val swearForms=listOf<Pair<String,(String)->String>>(
+        "kurwa," to { j -> "Kurwa, "+j.replaceFirstChar { it.lowercase() } },
+        "kurwa mać" to { j -> j.trimEnd('.','!',' ')+", kurwa mać!" },
+        "ja pierdolę" to { j -> "Ja pierdolę, "+j.replaceFirstChar { it.lowercase() } },
+        "jebany cyrk" to { j -> j.trimEnd('.','!',' ')+". Jebany cyrk." },
+        "o chuj" to { j -> "O chuj, "+j.replaceFirstChar { it.lowercase() } })
+    private fun opener(text:String)=text.trim().lowercase().split(Regex("[^\\p{L}]+")).filter { it.isNotBlank() }.take(2).joinToString(" ")
+    fun primary(s: Settings, planned: String, verdict: String = "ERROR", recent: Collection<String> = emptyList()): String {
         if(!enabled(s) || planned.isBlank()) return ""
         if(verdict != "ERROR" && Regex("wymow|akcent|błęd|bled|źle|zle",RegexOption.IGNORE_CASE).containsMatchIn(planned)) return ""
         val strong=Regex("kurw|pierdol|jeb|chuj",RegexOption.IGNORE_CASE)
@@ -11,7 +19,11 @@ object SpokenRoastPolicy {
         var result=planned.trim().take(320)
         if(s.personality.profanity == Profanity.STRONG && s.personality.roast >= 80 && !strong.containsMatchIn(result)) {
             result=result.replace(Regex("\\bcholernie\\b",RegexOption.IGNORE_CASE),"kurwa")
-            if(!strong.containsMatchIn(result)) result="Kurwa, "+result.replaceFirstChar { it.lowercase() }
+            if(!strong.containsMatchIn(result)) {
+                val used=recent.toList().takeLast(3).map { it.lowercase() }
+                val form=swearForms.firstOrNull { (mark,_) -> used.none { it.contains(mark) } } ?: swearForms[Math.floorMod(recent.size,swearForms.size)]
+                result=form.second(result)
+            }
         }
         return result
     }
@@ -31,7 +43,9 @@ object SpokenRoastPolicy {
         }
     }
     fun freshPrimary(s:Settings,planned:String,verdict:String,recent:Collection<String>):String {
-        val candidate=primary(s,planned,verdict)
+        val candidate=primary(s,planned,verdict,recent)
+        // The same opening words as the last ripostes ("Kurwa, twoja…" every turn) count as a repeat.
+        val sameOpener=opener(candidate).let { start -> start.contains(' ') && recent.toList().takeLast(2).any { opener(it)==start } }
         val weak=s.personality.profanity==Profanity.STRONG && s.personality.roast>=80 && !Regex("kurw|pierdol|jeb|chuj",RegexOption.IGNORE_CASE).containsMatchIn(planned)
         val motifs=listOf("mozg|intelig|genius|iq", "samolot|autopilot|pilot", "waliz|bagaz", "toalet|lazien|kibel", "router|wifi|internet")
         val reusedMotif=motifs.any { motif -> val re=Regex(motif); re.containsMatchIn(meaningful(candidate).joinToString(" ")) && recent.toList().takeLast(5).any { re.containsMatchIn(meaningful(it).joinToString(" ")) } }
@@ -40,14 +54,14 @@ object SpokenRoastPolicy {
         val genericPraise=s.personality.roast>=80 && (
             (terms.size<9 && terms.firstOrNull() in setOf("dobrze","swietnie","brawo","niezle","poprawnie")) ||
             (terms.size<12 && Regex("poprawna odpowiedz|kontynuujmy cwiczenie|bardzo dobrze ci poszlo").containsMatchIn(terms.joinToString(" "))))
-        return candidate.takeUnless { terms.size<4 || weak || staleComparison || genericPraise || reusedMotif || repeated(it,recent) }.orEmpty()
+        return candidate.takeUnless { terms.size<4 || weak || sameOpener || staleComparison || genericPraise || reusedMotif || repeated(it,recent) }.orEmpty()
     }
     fun creativeBrief(turn:Int,recent:Collection<String>):String {
         val techniques=listOf("parodia oburzonego rozmówcy: jedna krótka kwestia i absurdalna konsekwencja", "ironiczny komplement zakończony bezczelną puentą", "udawany komunikat z miejsca sceny, który reaguje na dokładną wypowiedź ucznia", "dosłowne znaczenie pomyłki jako komiczna katastrofa w scenie", "cięta riposta na dokładne słowa ucznia, bez zmiany tematu", "teatralne niedowierzanie i zaskakujące porównanie", "krótki dialog dwóch postaci spierających się o absurdalny skutek wpadki", "parodia przesadnie poważnego eksperta, którego wywód kończy uliczna puenta", "szydercza relacja na żywo z sytuacyjnej wpadki", "odwrócenie oczekiwań: zwykły początek, nieoczekiwany i dosadny finał")
         return "Kierunek tej riposty: ${techniques[Math.floorMod(turn,techniques.size)]}. To technika, nie gotowy tekst: wymyśl własną treść z aktualnej wypowiedzi. Nie używaj poprzednich rekwizytów ani motywów, nawet podmienionych synonimami. Nie komentuj stale mózgu, IQ, geniusza ani trybu samolotowego. Ostatnie komentarze: ${recent.toList().takeLast(3).joinToString(" | ").take(1000)}. Nie odczytuj briefu."
     }
     fun contextualPrimary(s:Settings,planned:String,verdict:String,recent:Collection<String>,heard:String,word:com.locospanish.ai.tutor.LessonWord?):String {
-        val candidate=freshPrimary(s,primary(s,planned,verdict),verdict,recent)
+        val candidate=freshPrimary(s,primary(s,planned,verdict,recent),verdict,recent)
         if(candidate.isBlank() || word==null) return candidate
         val folded=com.locospanish.ai.tutor.TopicLessons.fold(candidate).replace('ł','l')
         val meaning=com.locospanish.ai.tutor.TopicLessons.fold(word.pl).replace('ł','l')

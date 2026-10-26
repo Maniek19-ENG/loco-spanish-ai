@@ -557,7 +557,7 @@ class GeminiLiveClient(
                     val previousRoasts=(recentRoasts.toList()+state.value.transcript.filter { it.role=="assistant" && !it.id.startsWith("word:") }.takeLast(12).map { it.text }).filter { it.isNotBlank() }.distinct().takeLast(16)
                     val anchor=args.str("roast_anchor").trim()
                     val anchored=anchor.length>=3 && listOf(user?.text.orEmpty(),attemptedWord?.es.orEmpty(),attemptedWord?.pl.orEmpty()).any { AssessmentPolicy.contains(it,anchor) }
-                    val freshRoast=if(anchored) SpokenRoastPolicy.freshPrimary(settings,SpokenRoastPolicy.primary(settings,plannedRoast,assessment?.verdict ?: "UNCERTAIN"),assessment?.verdict ?: "UNCERTAIN",previousRoasts)
+                    val freshRoast=if(anchored) SpokenRoastPolicy.freshPrimary(settings,SpokenRoastPolicy.primary(settings,plannedRoast,assessment?.verdict ?: "UNCERTAIN",previousRoasts),assessment?.verdict ?: "UNCERTAIN",previousRoasts)
                         else SpokenRoastPolicy.contextualPrimary(settings,plannedRoast,assessment?.verdict ?: "UNCERTAIN",previousRoasts,user?.text.orEmpty(),attemptedWord)
                     val rejectedRoast=plannedRoast.isNotBlank() && freshRoast.isBlank()
                     if(rejectedRoast) { recentRoasts.addLast(plannedRoast.take(320));while(recentRoasts.size>12) recentRoasts.removeFirst() }

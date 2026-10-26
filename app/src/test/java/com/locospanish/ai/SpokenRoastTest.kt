@@ -50,4 +50,19 @@ class SpokenRoastTest {
         java.io.File(dir,"supplement-template.txt").writeText(SpokenRoastPolicy.supplement(Settings(),"__USER__","__VERDICT__","__ANSWER__","","__TOPIC__","__RECENT__"))
     }
 
+    @Test fun addedSwearDoesNotAlwaysOpenWithTheSameWord() {
+        val joke="Recepcjonista właśnie wpisał cię do księgi gości jako rekwizyt."
+        val first=SpokenRoastPolicy.primary(Settings(),joke)
+        assertTrue(first.startsWith("Kurwa,"))
+        val second=SpokenRoastPolicy.primary(Settings(),joke,"ERROR",listOf(first))
+        assertFalse(second.lowercase().startsWith("kurwa,"))
+        assertTrue(Regex("kurw|pierdol|jeb|chuj",RegexOption.IGNORE_CASE).containsMatchIn(second))
+        val third=SpokenRoastPolicy.primary(Settings(),joke,"ERROR",listOf(first,second))
+        assertNotEquals(second,third)
+    }
+    @Test fun aRiposteOpeningLikeTheLastOnesIsTreatedAsARepeat() {
+        val recent=listOf("Kurwa, twoja rezerwacja właśnie uciekła z hotelu przez okno.")
+        assertEquals("",SpokenRoastPolicy.freshPrimary(Settings(),"Kurwa, twoja walizka zamówiła sobie osobny pokój z widokiem na basen.","ERROR",recent))
+        assertTrue(SpokenRoastPolicy.freshPrimary(Settings(),"Recepcja dzwoni po ochronę, bo z tą walizką brzmisz jak pierdolony przemytnik ręczników.","ERROR",recent).isNotBlank())
+    }
 }
