@@ -77,6 +77,19 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: ./gradlew --no-daemon connectedDebugAndroidTest
+      - name: Print failed instrumented tests
+        if: always()
+        run: |
+          for f in $(find app/build/outputs/androidTest-results -name "*.xml" 2>/dev/null); do
+            grep -o 'tests="[0-9]*" failures="[0-9]*"[^>]*' "$f" | head -1
+            python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          for case in ET.parse(sys.argv[1]).iter("testcase"):
+              for fail in list(case.findall("failure")) + list(case.findall("error")):
+                  print("FAILED:", case.get("classname"), case.get("name"))
+                  print("\n".join((fail.text or "").splitlines()[:12]))
+          PY
+          done
       - name: Upload instrumented reports
         if: always()
         uses: actions/upload-artifact@v4
