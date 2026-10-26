@@ -32,7 +32,7 @@ class ReplyDeliveryTest {
  }
  @Test fun a1EndOfSpeechWaitIsShorterWithoutChangingConversationLevel() {
   fun silence(level:Level)=GeminiProtocol.setup(Settings(level=level),"hotel","").getAsJsonObject("setup").getAsJsonObject("realtimeInputConfig").getAsJsonObject("automaticActivityDetection").get("silenceDurationMs").asInt
-  assertEquals(450,silence(Level.A1));assertEquals(700,silence(Level.B2))
+  assertEquals(750,silence(Level.A1));assertEquals(850,silence(Level.B2))
  }
  @Test fun memoizationPreservesNumbersAccentsAndTildeWhenReusedConcurrently() {
   val inputs=listOf("treinta y uno","31","la habitación","habitación","ano","año","el café","Café")

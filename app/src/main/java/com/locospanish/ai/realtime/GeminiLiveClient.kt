@@ -89,7 +89,8 @@ class GeminiLiveClient(
     private var alignmentRetries=0
     private var approvedSpokenScript=""
     private var streamedBytes=0
-    private var streamDeviation=false
+    private var streamDeviation=false;streamHalted=false
+    private var streamHalted=false
     private var replyFinalized=false
     private var openingPromptPending=true
     private var roastRequested=false
@@ -239,15 +240,19 @@ class GeminiLiveClient(
         }
         e.getAsJsonObject("serverContent")?.let contentBlock@ { content ->
             mutable.update { transcript.apply(it,content).let { updated -> activeLessonWord?.let { word -> updated.copy(currentWord=word.es,currentMeaning=word.pl) } ?: updated } }
-            if(content.flag("interrupted")) { approvedSpokenScript="";streamedBytes=0;streamDeviation=false;provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; if(openingPromptPending || activeLessonWord==null) awaitResponse() else responseTimeout?.cancel(); supplementJob?.cancel(); answerText = ""; plannedRoast = ""; audio?.interrupt(); mutable.update { it.copy(phase = if(openingPromptPending || (activeLessonWord==null && !review.active)) VoicePhase.THINKING else VoicePhase.LISTENING) } }
+            if(content.flag("interrupted")) { approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; if(openingPromptPending || activeLessonWord==null) awaitResponse() else responseTimeout?.cancel(); supplementJob?.cancel(); answerText = ""; plannedRoast = ""; audio?.interrupt(); mutable.update { it.copy(phase = if(openingPromptPending || (activeLessonWord==null && !review.active)) VoicePhase.THINKING else VoicePhase.LISTENING) } }
             if(content.has("outputTranscription")) {
                 answerText = state.value.transcript.lastOrNull { it.role == "assistant" && !it.id.startsWith("word:") }?.text.orEmpty()
                 if(deliveringTool || ((!controlTurn || content.has("inputTranscription")) && assessedUserId != state.value.transcript.lastOrNull { it.role == "user" }?.id))
                     provisionalAssistantId = state.value.transcript.lastOrNull { it.role == "assistant" && !it.id.startsWith("word:") }?.id
+                if(streamedBytes>0 && !streamHalted && streamedReplyContradicts()) {
+                    // Cut a streamed reply as soon as its text contradicts the verified grade or the task on screen.
+                    streamHalted=true;audio?.interrupt()
+                }
             }
             if(content.has("inputTranscription")) {
                 replyFinalized=false;roastRequested=false;dialogueReplyOnly=false
-                approvedSpokenScript="";streamedBytes=0;streamDeviation=false
+                approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false
                 alignmentRetries=0
                 controlTurn = false;skipWordRequested=false;controlAction=null
                 val currentOwner=state.value.transcript.lastOrNull { it.role == "user" }?.id
@@ -270,12 +275,13 @@ class GeminiLiveClient(
                 if(((!state.value.taskPending && (activeLessonWord!=null || review.active)) || dialogueReplyOnly || LearnerIntent.questionInsteadOfTrial(state.value.transcript.lastOrNull { it.role=="user" }?.text.orEmpty(),activeLessonWord)) && !content.flag("interrupted") && data.str("mimeType").startsWith("audio/pcm")) {
                     val pcm = Base64.decode(data.str("data"),Base64.DEFAULT)
                     val currentUser = state.value.transcript.lastOrNull { it.role == "user" }
-                    if(deliveringTool || (!controlTurn && currentUser != null && assessedUserId != currentUser.id) || validateLessonSpeech() || currentWordHelpRequested()) {
+                    // Only an unassessed draft is held back; the assessed reply streams at once instead of waiting for the whole generation.
+                    if(deliveringTool || streamHalted || (!controlTurn && currentUser != null && assessedUserId != currentUser.id)) {
                         if(provisionalBytes + pcm.size > 1024 * 1024) { fail("Gemini nie zakończyło oceny wypowiedzi. Spróbuj ponownie."); return }
                         if(provisionalAudio.isEmpty() && streamedBytes==0) bufferedTaskRevision=lessonRevision
                         provisionalAudio.add(pcm); provisionalBytes += pcm.size
                     } else if(audio?.enqueue(pcm) != true) fail("Odtwarzanie audio nie nadąża. Spróbuj ponownie.")
-                    else { openingPromptPending=false;responseTimeout?.cancel() }
+                    else { if(streamedBytes==0) bufferedTaskRevision=lessonRevision;streamedBytes+=pcm.size;openingPromptPending=false;responseTimeout?.cancel() }
                 }
             } }
             if(approvedSpokenScript.isNotBlank() && provisionalAudio.isNotEmpty() && !streamDeviation && verdict=="ERROR") {
@@ -312,7 +318,8 @@ class GeminiLiveClient(
                 val uncertainTrial=actualUser!=null && assessedUserId==actualUser.id && verdict=="UNCERTAIN"
                 val falseRejection=(correctTrial && SpokenTeachingPolicy.rejectsCorrectAnswer(answerText)) ||
                     ((referenceHelp || uncertainTrial) && SpokenTeachingPolicy.assertsError(answerText))
-                var roastIssue=if(roastRequested && !referenceHelp && !roastIsHelp && alignmentRetries==0) SpokenRoastPolicy.replyIssue(taskSettings,answerText,plannedRoast,verdict,recentRoasts,roastHeard,roastWord) else ""
+                // A reply already heard is not regenerated for style alone; that would only add another turn.
+                var roastIssue=if(roastRequested && !referenceHelp && !roastIsHelp && alignmentRetries==0 && streamedBytes==0) SpokenRoastPolicy.replyIssue(taskSettings,answerText,plannedRoast,verdict,recentRoasts,roastHeard,roastWord) else ""
                 val emptyJoke=!taskSettings.previousVersionMode && SpokenTeachingPolicy.onlyLaughter(answerText)
                 val referenceProvided=target!=null && (referenceWasPlayed(target.es) || (actualUser!=null && queuedWordTurn==(actualUser.id to target.es)))
                 val missingHelp=referenceHelp && target!=null && answerText.isNotBlank() &&
@@ -365,7 +372,7 @@ class GeminiLiveClient(
                 }
                 referenceGate.complete(Unit)
                 provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null;bufferedTaskRevision=null;alignmentRetries=0
-                approvedSpokenScript="";streamedBytes=0;streamDeviation=false
+                approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false
                 pendingLessonWord?.let { if(AssessmentPolicy.contains(answerText,it)) taughtVocabulary.add(it) }; pendingLessonWord = null
                 TopicLessons.get(scenario).words.filter { TopicLessons.matches(answerText,it) }.forEach { taughtVocabulary.add(it.es) }
                 if(state.value.phase == VoicePhase.THINKING && activeLessonWord!=null && (answerText.isNotBlank() || spokenWordTurn!=null)) mutable.update { it.copy(phase = VoicePhase.LISTENING) }
@@ -665,6 +672,15 @@ class GeminiLiveClient(
             awaitResponse()
         }
     }
+    private fun streamedReplyContradicts():Boolean {
+        val target=activeLessonWord ?: return false
+        val actualUser=state.value.transcript.lastOrNull { it.role=="user" }
+        val correctTrial=actualUser!=null && ((assessedUserId==actualUser.id && verdict=="CORRECT") || acceptedWordUserId==actualUser.id)
+        val uncertainTrial=actualUser!=null && assessedUserId==actualUser.id && verdict=="UNCERTAIN"
+        return (correctTrial && SpokenTeachingPolicy.rejectsCorrectAnswer(answerText)) ||
+            ((uncertainTrial || currentWordHelpRequested()) && SpokenTeachingPolicy.assertsError(answerText)) ||
+            (validateLessonSpeech() && LessonSpeechContract.mismatch(answerText,target))
+    }
     private fun flushProvisionalAudio() {
         if(provisionalAudio.isEmpty()) return
         val joined=ByteArray(provisionalBytes);var offset=0
@@ -882,7 +898,7 @@ class GeminiLiveClient(
             forceWordReplay=true;queueWord(target.es,"start",epoch)
         }
     }
-    fun command(text: String, interruptAudio: Boolean = true) { if(state.value.connected) { assessmentWatchdog?.cancel();assessmentWatchdog=null;roastRequested=false;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false; skipWordRequested=Regex("kontynuować lekcję|następne słowo|nowe słowo|^dalej$",RegexOption.IGNORE_CASE).containsMatchIn(text); if(interruptAudio) { wordJob?.cancel();queuedWordTurn=null;referenceGate=CompletableDeferred() }; forceWordReplay = interruptAudio && Regex("^(?:powtórz|powtorz|wolniej|wymow|pronuncia|repite)\\b",RegexOption.IGNORE_CASE).containsMatchIn(text); controlTurn = true; awaitResponse(); supplementJob?.cancel(); if(interruptAudio) audio?.interrupt(); send(GeminiProtocol.textTurn(text)); mutable.update { it.copy(phase = VoicePhase.THINKING) } } }
+    fun command(text: String, interruptAudio: Boolean = true) { if(state.value.connected) { assessmentWatchdog?.cancel();assessmentWatchdog=null;roastRequested=false;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false; skipWordRequested=Regex("kontynuować lekcję|następne słowo|nowe słowo|^dalej$",RegexOption.IGNORE_CASE).containsMatchIn(text); if(interruptAudio) { wordJob?.cancel();queuedWordTurn=null;referenceGate=CompletableDeferred() }; forceWordReplay = interruptAudio && Regex("^(?:powtórz|powtorz|wolniej|wymow|pronuncia|repite)\\b",RegexOption.IGNORE_CASE).containsMatchIn(text); controlTurn = true; awaitResponse(); supplementJob?.cancel(); if(interruptAudio) audio?.interrupt(); send(GeminiProtocol.textTurn(text)); mutable.update { it.copy(phase = VoicePhase.THINKING) } } }
     fun wordPresented(word:String,meaning:String) {
         displayedTask=if(word.isBlank() || meaning.isBlank()) null else word to meaning
         if(displayedTask==null) presentedAudio?.hidden() else presentedAudio?.presented(word,meaning)
@@ -906,7 +922,7 @@ class GeminiLiveClient(
         if(muted && state.value.connected) send(GeminiProtocol.json("realtimeInput" to GeminiProtocol.json("audioStreamEnd" to true)))
     }
     private fun fail(message: String) { close(); mutable.update { it.copy(phase = VoicePhase.ERROR,connected = false,taskPending=false,message = message) } }
-    private fun close() { nativeReply?.cancel();nativeReply=null;nativeReplyOwner=null;nativeReplyScript="";riposteLaughter.reset();liveTaskRequest="";materialRetryAt=0L;assessmentWatchdog?.cancel();assessmentWatchdog=null;assessmentNudgedFor=null;referenceRevision=-1L;helpAttempts=0;lastHelpOwner=null;dialogueReplyOnly=false;roastRequested=false;roastWord=null;roastHeard="";openingPromptPending=true;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false; helpReferenceJob?.cancel();helpReferenceJob=null;helpReferenceTurn=null;failedHelpReferenceTurn=null;taskJob?.cancel();taskJob=null;taskKey="";prefetchJob?.cancel();prefetchJob=null;prefetchWord=null;incomingJob?.cancel();incomingJob=null;incoming?.close();incoming=null;mutableAudioLevel.value=0f; epoch++; wordJob?.cancel();wordJob=null;queuedWordTurn=null;referenceGate.cancel();referenceGate=CompletableDeferred();referenceOwner=null; deliveringTool=false; forceWordReplay=false; wordSpeaker?.close(); wordSpeaker=null; spokenWordTurn=null; activeLessonWord=null; skipWordRequested=false; lastPresentedWord=null; acceptedWordUserId=null;lastAcceptedWord=null; acceptedWordResponses.clear(); provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; supplementJob?.cancel(); supplementJob = null; roastSpeech?.let { runCatching { it.close() } }; roastSpeech = null; readingSupplement = false; answerText = ""; plannedRoast = ""; verdict = "CORRECT"; timeout?.cancel(); timeout = null; responseTimeout?.cancel(); responseTimeout = null; socket?.cancel(); socket = null; runCatching { audio?.close() }; audio = null;presentedAudio=null }
+    private fun close() { nativeReply?.cancel();nativeReply=null;nativeReplyOwner=null;nativeReplyScript="";riposteLaughter.reset();liveTaskRequest="";materialRetryAt=0L;assessmentWatchdog?.cancel();assessmentWatchdog=null;assessmentNudgedFor=null;referenceRevision=-1L;helpAttempts=0;lastHelpOwner=null;dialogueReplyOnly=false;roastRequested=false;roastWord=null;roastHeard="";openingPromptPending=true;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false; helpReferenceJob?.cancel();helpReferenceJob=null;helpReferenceTurn=null;failedHelpReferenceTurn=null;taskJob?.cancel();taskJob=null;taskKey="";prefetchJob?.cancel();prefetchJob=null;prefetchWord=null;incomingJob?.cancel();incomingJob=null;incoming?.close();incoming=null;mutableAudioLevel.value=0f; epoch++; wordJob?.cancel();wordJob=null;queuedWordTurn=null;referenceGate.cancel();referenceGate=CompletableDeferred();referenceOwner=null; deliveringTool=false; forceWordReplay=false; wordSpeaker?.close(); wordSpeaker=null; spokenWordTurn=null; activeLessonWord=null; skipWordRequested=false; lastPresentedWord=null; acceptedWordUserId=null;lastAcceptedWord=null; acceptedWordResponses.clear(); provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; supplementJob?.cancel(); supplementJob = null; roastSpeech?.let { runCatching { it.close() } }; roastSpeech = null; readingSupplement = false; answerText = ""; plannedRoast = ""; verdict = "CORRECT"; timeout?.cancel(); timeout = null; responseTimeout?.cancel(); responseTimeout = null; socket?.cancel(); socket = null; runCatching { audio?.close() }; audio = null;presentedAudio=null }
     fun stop() { close(); mutable.update { it.copy(phase = VoicePhase.IDLE,connected = false,muted = false,message = "Rozmowa zakończona.") } }
 }
 

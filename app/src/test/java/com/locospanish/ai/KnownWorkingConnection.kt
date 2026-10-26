@@ -39,6 +39,6 @@ internal object KnownWorkingConnection {
             "systemInstruction" to json("parts" to listOf(json("text" to prompt(s,scenario,memory)))),
             "inputAudioTranscription" to json(), "outputAudioTranscription" to json(), "tools" to tools,
             "contextWindowCompression" to json("slidingWindow" to json()),
-            "realtimeInputConfig" to json("automaticActivityDetection" to json("silenceDurationMs" to if(s.level==Level.A1) 450 else 700), "activityHandling" to "START_OF_ACTIVITY_INTERRUPTS")))
+            "realtimeInputConfig" to json("automaticActivityDetection" to json("silenceDurationMs" to if(s.level==Level.A1) 750 else 850), "activityHandling" to "START_OF_ACTIVITY_INTERRUPTS")))
     }
 }

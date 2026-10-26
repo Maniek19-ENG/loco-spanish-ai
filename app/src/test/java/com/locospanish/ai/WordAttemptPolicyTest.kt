@@ -89,4 +89,20 @@ class WordAttemptPolicyTest {
         val text="Chcę teraz słowa o hotelu"
         assertTrue(WordAttemptPolicy.newTopic(text));assertFalse(WordAttemptPolicy.canAdvance(word,text,correct(text)))
     }
+    @Test fun spellingOnlyTranscriptVariantsOfTheRightSoundAreCorrect() {
+        for((target,answer) in listOf("la habitación" to "abitación","la cerveza" to "cerbeza","la llave" to "yave","la cerveza" to "serbesa","el vaso" to "baso","la cena" to "sena")) {
+            val grade=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("ERROR",answer,"inventado","zmyślona poprawka"))
+            assertEquals("$target / $answer","CORRECT",grade.verdict)
+            assertTrue("$target / $answer",WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,grade))
+        }
+    }
+    @Test fun nearMissTranscriptIsUncertainNotAMockedError() {
+        for((target,answer) in listOf("la habitación" to "habitacio","la reserva" to "reserbo","el pasaporte" to "pasaporta")) {
+            val grade=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("CORRECT",target))
+            assertEquals("$target / $answer","UNCERTAIN",grade.verdict)
+            assertFalse(WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,grade))
+        }
+        val grade=WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka"))
+        assertEquals("ERROR",grade.verdict)
+    }
 }

@@ -34,6 +34,38 @@ object WordAttemptPolicy {
         val alternatives=equivalents.firstOrNull { core in it } ?: setOf(core)
         return alternatives.any { AssessmentPolicy.contains(text,it) }
     }
+    /** Spelling-independent Spanish sound key: silent h, b/v, ll/y, soft c/z/s and Polish-style w are one sound. */
+    fun soundKey(text:String):String {
+        var s=AssessmentPolicy.speech(text).replace(" ","").replace("ch","\u0001").replace("h","").replace("\u0001","ch")
+        s=s.replace(Regex("g(?=[ei])"),"x").replace("j","x").replace("qu","k").replace(Regex("gu(?=[ei])"),"g")
+            .replace(Regex("c(?=[ei])"),"s").replace("z","s").replace("c","k").replace("ll","y").replace("v","b").replace("w","b")
+            .replace("ñ","ny").replace(Regex("y$"),"i")
+        return s.replace(Regex("([^r])\\1+"),"$1")
+    }
+    private fun distance(a:String,b:String):Int {
+        var previous=IntArray(b.length+1) { it }
+        for(i in 1..a.length) {
+            val row=IntArray(b.length+1);row[0]=i
+            for(j in 1..b.length) row[j]=minOf(previous[j]+1,row[j-1]+1,previous[j-1]+if(a[i-1]==b[j-1]) 0 else 1)
+            previous=row
+        }
+        return previous[b.length]
+    }
+    private fun alternativesOf(word:LessonWord):Set<String> {
+        val core=AssessmentPolicy.speech(AssessmentPolicy.display(word.es))
+        return equivalents.firstOrNull { core in it } ?: setOf(core)
+    }
+    /** The transcript spells the target differently but it sounds identical in Spanish (abitación, cerbeza, yave). */
+    fun soundsLike(word:LessonWord,text:String):Boolean {
+        val heard=soundKey(AssessmentPolicy.display(trialText(text)))
+        return heard.isNotBlank() && alternativesOf(word).any { soundKey(it)==heard }
+    }
+    /** A near miss of a single word: likely a transcription slip, never proof of a real mistake. */
+    fun nearMiss(word:LessonWord,text:String):Boolean {
+        val heard=soundKey(AssessmentPolicy.display(trialText(text)))
+        if(heard.length<3) return false
+        return alternativesOf(word).any { val target=soundKey(it); target.length>=3 && distance(heard,target)<=if(target.length>=6) 2 else 1 }
+    }
     fun evaluate(word:LessonWord?,text:String,checked:Assessment, reliableTranscript:Boolean = false):Assessment {
         if(word == null || newTopic(text)) return checked
         if(text.isBlank() || needsHelp(text)) return Assessment("UNCERTAIN",text,explanation="Brak odpowiedzi na ćwiczone słowo. Pomóż i zostań przy tym samym zadaniu; nie zaliczaj komentarza.")
@@ -49,15 +81,17 @@ object WordAttemptPolicy {
         // Definite and indefinite articles of the same gender are both valid answers.
         if(expectedArticle in setOf("el","la","los","las") && !genderCorrect && matches(word,text) && singleTrial)
             return Assessment("ERROR",text,word.es,"Rodzajnik nie pasuje do tego rzeczownika.")
-        if(genderCorrect && singleTrial && matches(word,text))
+        if(genderCorrect && singleTrial && (matches(word,text) || soundsLike(word,text)))
             return Assessment("CORRECT",text,explanation="Rozpoznano poprawną odpowiedź na ćwiczone słowo. Nie oceniaj wymowy na podstawie samej pisowni.")
+        if(singleTrial && nearMiss(word,text) && checked.verdict!="ERROR")
+            return Assessment("UNCERTAIN",text,explanation="Transkrypcja jest bliska słowa ${word.es}, ale niepewna. Nie śmiej się i nie zarzucaj błędu; poproś krótko o jeszcze jedną wyraźną próbę.")
         if(checked.verdict == "CORRECT" && !matches(word,text)) {
             return if(LessonTurnPolicy.singleWord(text.trim().trimEnd('.', '!', '?'))) Assessment("ERROR",text,word.es,"Ćwiczymy słowo „${word.pl}”. Ta odpowiedź nie odpowiada aktualnemu słowu.")
             else checked
         }
         return checked
     }
-    fun canAdvance(word:LessonWord?,text:String,checked:Assessment)=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && matches(word,text)
+    fun canAdvance(word:LessonWord?,text:String,checked:Assessment)=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text))
     fun hold(word:LessonWord?)="NIE PRZECHODŹ DO KOLEJNEGO SŁOWA. Nie zaliczono nowej poprawnej odpowiedzi. " +
         (word?.let { "Aktualne zadanie: ${it.es} — ${it.pl}. " } ?: "") +
         "Przy błędzie popraw tę próbę; przy pytaniu lub nie wiem pomóż krótko. Przy braku wypowiedzi czekaj na ucznia. Bez nowego słowa, bez fałszywej pochwały i bez kończenia lekcji."
