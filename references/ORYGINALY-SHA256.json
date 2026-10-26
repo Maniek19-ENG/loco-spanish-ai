@@ -1,0 +1,24 @@
+{
+  "2.3.8": {
+    "sha256": "f1877143442f2001ef0f09c5317aeaead5feb158873fdf4904c869a05d650981",
+    "dex": {
+      "classes.dex": "10b814ad0b33ca9ddb063edccf05b8e826caaa2ca9e3cdb7e90a594a3680fee2",
+      "classes2.dex": "d72cd7d9ddbac975419e0bc69ea5f70f1c2d48dca56a92fa429dcfafb5009fde",
+      "classes3.dex": "52063aab04ce045a35a991739826ffbf4d9738a47484a2d40b6b9ccbe9078a42"
+    },
+    "original_laugh_resource": [
+      "res/k8.wav"
+    ]
+  },
+  "2.3.16": {
+    "sha256": "37d949d290cddd77d053a8b6d8d87519e807cbbcdada1c2d6662be2fa959b288",
+    "dex": {
+      "classes.dex": "87ca65c7db6768b7f45fc658c416e687a41f746c1638ec89d6c5af52f25743d3",
+      "classes2.dex": "e6dfeb43c15078b86e708eeea62e10771d34ced0fb05b7ff839feab30ae9d11d",
+      "classes3.dex": "52063aab04ce045a35a991739826ffbf4d9738a47484a2d40b6b9ccbe9078a42"
+    },
+    "original_laugh_resource": [
+      "res/k8.wav"
+    ]
+  }
+}

@@ -1,117 +1,66 @@
-<div align="center">
-
 # LOCO Spanish AI
-### Hiszpański na głos. Polski w objaśnieniach. Charakter bez filtra.
 
-**Android 8.0+ · wersja 2.3.18 · poziomy A1–C2 · 18 scenariuszy**
+Głosowa nauka hiszpańskiego na Androidzie: polskie objaśnienia, scenariusze, poziomy A1–C2, zapis poznanych słów i regulowany charakter nauczyciela — od spokojnego do ostrego roastu.
 
-## [⬇ POBIERZ APLIKACJĘ 2.3.18](https://github.com/Maniek19-ENG/loco-spanish-ai/raw/refs/heads/main/LOCO-Spanish-AI-2.3.18.apk)
+**Aktualny kod: 2.3.25 · Android 8.0+ · kompletny projekt do dalszego rozwijania przez AI.**
 
-[Instalacja](#instalacja) · [Pierwsza lekcja](#pierwsza-lekcja) · [Powrót do 2.3.8](#powrót-do-238)
+## Pobierz aplikację
 
-</div>
+**[Pobierz APK 2.3.25 — poprawka OCENA](https://github.com/Maniek19-ENG/loco-spanish-ai/releases/download/v2.3.25-ocena/LOCO-Spanish-AI-2.3.25-OCENA.apk)**
 
----
+[Wszystkie pliki tego wydania](https://github.com/Maniek19-ENG/loco-spanish-ai/releases/tag/v2.3.25-ocena) · [sumy SHA-256](downloads/SHA256SUMS-2.3.25-OCENA.txt)
 
-LOCO to głosowy nauczyciel hiszpańskiego dla osób mówiących po polsku. Rozmawiasz przez mikrofon telefonu, słuchasz hiszpańskich słów i ćwiczysz je w wybranym temacie. Objaśnienia dostajesz po polsku, a aktualne hasło i jego znaczenie widzisz na ekranie.
+Pliki są publiczne — pobieranie nie wymaga konta GitHub. Wydanie jest oznaczone do dalszego sprawdzenia. Przeszły **159 testów logiki i pełny przebieg 120 testów Androida**. Nie przeprowadzono rzeczywistej rozmowy z Gemini na telefonie; wyniki automatyczne nie potwierdzają jakości rozpoznawania mowy, wymowy ani każdej riposty w prawdziwej sesji.
 
-Nauczyciel ma charakter: potrafi rzucić ironiczną docinkę, wyśmiać językową wpadkę i doprawić komentarz przekleństwem. **Ty ustawiasz siłę roastu, sarkazmu, przekleństw i korekty.** Wybierasz spokojniejszą naukę albo ostrą, komediową przepychankę.
+### Instalacja i pierwsza lekcja
 
-## Co oferuje LOCO
+1. Pobierz plik z dopiskiem **OCENA** i otwórz go w aplikacji Pliki / Moje pliki na telefonie.
+2. Jeśli Android poprosi, zezwól temu źródłu na instalowanie aplikacji i wybierz aktualizację. **Nie odinstalowuj LOCO ani nie czyść danych**, aby zachować postępy i ustawienia.
+3. Przy pierwszym uruchomieniu zezwól na mikrofon i wpisz własny klucz Gemini API w ustawieniach. Potrzebny jest internet i dostęp do modeli Gemini używanych przez aplikację.
+4. Wybierz poziom i scenariusz. Na A1 nauka zaczyna się od pojedynczych słów. Siłę docinek, przekleństwa i korektę ustawisz w osobowości nauczyciela.
 
-| Funkcja | Jak z niej korzystasz |
+## Otwórz projekt w innym AI
+
+Przekaż AI adres tego repozytorium lub sklonuj je:
+
+```sh
+git clone https://github.com/Maniek19-ENG/loco-spanish-ai.git
+```
+
+**Punkt startowy: [ZACZNIJ_TUTAJ.md](ZACZNIJ_TUTAJ.md).** Zawiera wymagania użytkownika, stan projektu, konkretne zgłoszenia oraz miejsca wymagające dalszego sprawdzenia. [AGENTS.md](AGENTS.md) opisuje zasady pracy, [reports/STATUS.md](reports/STATUS.md) — faktyczny zakres testów, a [docs/BUDOWANIE.md](docs/BUDOWANIE.md) — budowanie i konfigurację podpisu.
+
+Proponowane polecenie dla AI: „Przeczytaj AGENTS.md, ZACZNIJ_TUTAJ.md i reports/STATUS.md. Naprawiaj ten projekt, zachowując postępy, zasoby i oryginalne instalatory. Przed uznaniem wydania za gotowe sprawdź rzeczywistą rozmowę z Gemini. Nie zastępuj tej weryfikacji samymi testami z atrapą serwera.”
+
+## Co jest w repozytorium
+
+| Ścieżka | Zawartość |
 | --- | --- |
-| 🎙️ Rozmowa na żywo | Mówisz naturalnie i możesz przerwać nauczycielowi. |
-| 🇵🇱 Polski + 🇪🇸 hiszpański | Instrukcje i znaczenia po polsku, ćwiczenia po hiszpańsku. |
-| 📚 Nauka od podstaw | Na A1 zaczynasz od pojedynczych słów; kolejne poziomy rozwijają rozmowę. |
-| 🧭 18 scenariuszy | Ćwiczysz słownictwo z wybranego tematu. |
-| 🔥 Osobowość nauczyciela | Wybierasz profil i dopasowujesz charakter oraz siłę korekty. |
-| 🧠 Postępy i odpytywanie | Wracasz do zapisanych słów i sprawdzasz, co pamiętasz. |
-| 💬 Pomoc w lekcji | Pytasz o znaczenie, prosisz o powtórzenie, wolniejsze tempo lub wyjaśnienie. |
-| 🔵 Animowana kula | Reaguje na stan rozmowy i natężenie dźwięku. |
-| ↩️ Powrót do 2.3.8 | Zachowany instalator jest w aplikacji i dostępny osobno poniżej. |
+| `app/src/main/` | Kod aplikacji i komplet zasobów, w tym nagranie śmiechu. |
+| `app/src/test/`, `app/src/androidTest/` | Testy oceniania, lekcji, scenariuszy, ustawień, ekranu, audio i postępów. |
+| `gradle/`, `gradlew`, `gradlew.bat` | Gradle Wrapper i pliki potrzebne do budowania projektu. |
+| `app/src/main/assets/loco-2.3.24.apk` | Dokładna poprzednia aktualizacja do powrotu bez pobierania. |
+| `references/` | Oryginalne APK 2.3.8 i 2.3.16, nagranie oraz materiał porównawczy z 2.3.8. |
+| `reports/`, `docs/` | Wyniki kontroli, opis napraw i ograniczenia weryfikacji. |
+| `archives/` | Instalatory zachowane z wcześniejszej publikacji. |
 
-### Wybierz temat
+Katalogi kompilacji, pamięć Gradle, ustawienia konkretnego komputera, klucz Gemini i prywatny klucz podpisu nie należą do repozytorium. Do aktualizowania istniejącej instalacji potrzebny jest dotychczasowy podpis; instrukcja użycia prywatnego pliku konfiguracyjnego jest w dokumentacji budowania.
 
-Codzienna rozmowa · bar · restauracja · kawiarnia · zakupy · hotel · lotnisko · taxi · poznawanie ludzi · randka · wynajem mieszkania · rozmowa kwalifikacyjna · kontakt z pracodawcą · praca w hotelu · konserwacja i naprawy · elektronika · sytuacje awaryjne · swobodna rozmowa.
+## Ostatnia poprawka oceniania
 
-## Pobieranie dla każdego
+Naprawiono odrzucanie poprawnego pojedynczego słowa, które dotarło ponownie po przejściu do następnego zadania, oraz wypuszczanie błędnej oceny do audio przed sprawdzeniem wypowiedzi. Dodatkowe przypadki obejmują odstępy, rodzajniki, krótkie twierdzące ramy odpowiedzi i dokładne ćwiczone zwroty. Zachowano odpowiedzi na pytania i prośby o zmianę tematu. [Opis odtworzonych błędów i zmian](docs/NAPRAWA-OCENY-2.3.25.md).
 
-**Nie potrzebujesz konta GitHub ani logowania, żeby pobrać aplikację.**
+## Powrót do zachowanej wersji
 
-| Pobierz | Przeznaczenie |
-| --- | --- |
-| **[LOCO 2.3.18 — APK](https://github.com/Maniek19-ENG/loco-spanish-ai/raw/refs/heads/main/LOCO-Spanish-AI-2.3.18.apk)** | Pierwsza instalacja lub aktualizacja. |
-| [LOCO 2.3.8 — POWRÓT](https://github.com/Maniek19-ENG/loco-spanish-ai/raw/refs/heads/main/LOCO-Spanish-AI-2.3.8-POWROT.apk) | Powrót do zachowanej wersji, także gdy bieżąca się nie otwiera. |
-| [Sumy kontrolne SHA256](SHA256SUMS.txt) | Sprawdzenie integralności instalatorów. |
+[**2.3.24 — instalator POWRÓT**](https://github.com/Maniek19-ENG/loco-spanish-ai/releases/download/v2.3.25-ocena/LOCO-Spanish-AI-2.3.24-POWROT.apk) · [2.3.8 — instalator POWRÓT](https://github.com/Maniek19-ENG/loco-spanish-ai/releases/download/v2.3.25-ocena/LOCO-Spanish-AI-2.3.8-POWROT.apk)
 
-To gotowe instalatory na Androida. Nie potrzeba Android Studio, komputera podczas nauki ani dodatkowych paczek OBB.
+Powrót do 2.3.24 jest również w ustawieniach aplikacji. Osadzony instalator zachowano bajt w bajt, razem z jego wcześniejszymi instalatorami powrotu. Nie odinstalowuj aplikacji przy cofaniu aktualizacji.
 
-## Wymagania
+## Budowanie
 
-- **Android 8.0 lub nowszy** i dostęp do mikrofonu.
-- Internet.
-- **Własny klucz Gemini API** z dostępem do modeli i dostępnym limitem zapytań. Wpisujesz go w ustawieniach LOCO.
+JDK 21 i Android SDK 37. Otwórz katalog w Android Studio albo uruchom:
 
-Pobranie APK jest bezpłatne. Gemini API podlega limitom i warunkom projektu Google; może wymagać włączenia rozliczeń. Abonament w aplikacji Gemini nie zastępuje dostępu do API. LOCO nie działa jako pełny nauczyciel offline.
+```powershell
+.\gradlew.bat testDebugUnitTest lintRelease assembleDebug assembleAndroidTest
+```
 
-## Instalacja
-
-1. Na telefonie wybierz **POBIERZ APLIKACJĘ 2.3.18** u góry strony.
-2. Otwórz pobrany `LOCO-Spanish-AI-2.3.18.apk` w aplikacji **Pliki / Moje pliki**.
-3. Jeśli Android poprosi, zezwól tej aplikacji na instalowanie z tego źródła i wróć do instalatora.
-4. Wybierz **Zainstaluj**. Przy aktualizacji wybierz **Aktualizuj / Zainstaluj**.
-5. Uruchom LOCO i zezwól na dostęp do mikrofonu.
-
-**Masz już LOCO? Nie odinstalowuj go i nie czyść danych.** Zainstaluj aktualizację na obecnej aplikacji, aby zachować ustawienia, klucz i postępy.
-
-Jeśli otworzy się podgląd pliku, wybierz pobranie APK. Nie zapisuj strony WWW jako instalatora.
-
-## Pierwsza lekcja
-
-1. W **Ustawieniach** wpisz swój klucz Gemini API i wykonaj kroki konfiguracji.
-2. Wybierz poziom. Jeśli zaczynasz od zera, ustaw **A1**.
-3. W **Scenariuszach** wybierz temat, np. hotel lub kawiarnię.
-4. W **Osobowości** wybierz profil oraz ustaw docinki, przekleństwa i korektę.
-5. Naciśnij **Rozpocznij rozmowę**. Słuchaj wzorca i odpowiadaj po hiszpańsku. Aktualne słowo i polskie znaczenie są na ekranie.
-6. Gdy potrzebujesz pomocy, zadaj pytanie albo użyj opcji powtórzenia, wyjaśnienia lub wolniejszego tempa. Zapisane słowa sprawdzisz w **Postępach**.
-
-## Powrót do 2.3.8
-
-**Z aplikacji:** w ustawieniach wybierz **WRÓĆ DO WERSJI 2.3.8** i potwierdź instalację. Jeśli Android poprosi o zgodę na instalowanie z LOCO, włącz ją, wróć i ponów powrót.
-
-**Gdy aplikacja się nie otwiera:** pobierz [osobny instalator 2.3.8](https://github.com/Maniek19-ENG/loco-spanish-ai/raw/refs/heads/main/LOCO-Spanish-AI-2.3.8-POWROT.apk) i otwórz go w aplikacji Pliki. Nie odinstalowuj LOCO.
-
-Aby wrócić do 2.3.18, zainstaluj jej APK. Sprawdzono przejście **2.3.18 → 2.3.8 → 2.3.18** bez odinstalowania. Pakiety mają zgodny podpis i kod instalacji. W zachowanej 2.3.8 dostosowano kod instalacji i podpis; jej kod lekcji pozostał bez zmian.
-
-## Co poprawiono w 2.3.18
-
-- Pobrane słownictwo jest zapisywane lokalnie dla danego tematu i poziomu, aby wykorzystać pozostałe hasła po ponownym uruchomieniu.
-- Gdy dodatkowe pobieranie zawiedzie lub przekroczy 3,5 sekundy, aplikacja może kontynuować naukę z dodatkowym słownikiem scenariusza.
-- Dobór materiału pomija słowa poznane i ćwiczone w bieżącej sesji.
-- Zadanie pojawia się na ekranie przed przygotowaniem jego audio.
-- Zachowano powrót do 2.3.8 i udostępniono osobny pakiet powrotu.
-
-## Pomoc
-
-| Problem | Co sprawdzić |
-| --- | --- |
-| Android blokuje instalację | Zezwól na instalowanie z aplikacji, w której otwierasz APK. |
-| Brak połączenia z Gemini | Sprawdź internet, klucz w LOCO, dostęp do modeli i limity projektu Google. |
-| LOCO Cię nie słyszy | Sprawdź uprawnienie mikrofonu, wyciszenie i wybrane urządzenie audio. |
-| Nie pobrano nowych słów | Jeśli pojawi się **POBIERZ SŁOWA PONOWNIE**, użyj go po sprawdzeniu połączenia. Lokalny zapas słów jest skończony. |
-| Chcesz wrócić do wcześniejszej wersji | Skorzystaj z instrukcji powrotu do 2.3.8 powyżej. |
-
-## Dane i weryfikacja
-
-Dźwięk i treść lekcji są wysyłane do Gemini. Historia nauki i ustawienia są zapisywane lokalnie. Klucz API wpisujesz samodzielnie; nie jest dołączony do APK ani publikowany w repozytorium.
-
-Wykonano **16 testów JVM i 66 testów Androida**, obejmujących m.in. awarie pobierania, zapis słów, widoczność zadań, dźwięk i pakiet powrotu. Testy komunikacji korzystały z kontrolowanych odpowiedzi. Działanie wydania zostało następnie potwierdzone przez użytkownika na telefonie. Dostępność Gemini oraz poprawność ocen i odpowiedzi zależą także od zewnętrznej usługi AI.
-
-Sumy obu APK są w [SHA256SUMS.txt](SHA256SUMS.txt). Na Windows sprawdzisz plik poleceniem `Get-FileHash -Algorithm SHA256 .\LOCO-Spanish-AI-2.3.18.apk`.
-
----
-
-**Autor: Mariusz Swistak · [Maniek19-ENG](https://github.com/Maniek19-ENG)**
-
-Repozytorium zawiera pakiety do instalacji i instrukcję. Starsza zawartość pozostaje w historii Git. [Licencja MIT](LICENSE).
+Na Linux/macOS użyj `./gradlew`. APK debug pojawi się w `app/build/outputs/apk/debug/`. Wydanie release aktualizujące dotychczasową instalację wymaga prywatnej konfiguracji podpisu opisanej w [instrukcji budowania](docs/BUDOWANIE.md).

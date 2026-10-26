@@ -1,0 +1,17 @@
+
+com.locospanish.ai.ConversationScreenTest:.
+com.locospanish.ai.ExhaustedLessonScreenTest:..
+com.locospanish.ai.GeminiIntegrationTest:...................................................................................................
+com.locospanish.ai.LifecycleTest:..
+com.locospanish.ai.PcmAudioTest:....
+com.locospanish.ai.RiposteLaughterTest:...
+com.locospanish.ai.SpanishReferenceSpeechTest:...
+com.locospanish.ai.StartupTest:.
+com.locospanish.ai.VoiceOrbTest:....
+com.locospanish.ai.WordDisplayTest:.
+
+Time: 99.874
+
+OK (120 tests)
+
+

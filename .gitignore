@@ -1,0 +1,43 @@
+# Build output and local tools
+.gradle/
+.kotlin/
+.idea/
+**/build/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Private credentials and signing files
+.env
+.env.*
+!.env.example
+keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+/signing/
+
+# Generated packages, logs and caches
+*.apk
+!app/src/main/assets/loco-2.3.24.apk
+*.aab
+*.idsig
+*.apks
+*.log
+*.hprof
+*.zip
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+Thumbs.db
+
+# Preserved reference installers are part of the complete project
+!references/**/*.apk
+/release-upload/
+!archives/*.apk

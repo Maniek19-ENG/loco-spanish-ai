@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-26",
+  "version": "2.3.25",
+  "file": "LOCO-Spanish-AI-2.3.25-OCENA.apk",
+  "sha256": "32d543c2a8f701cab17926f9c90694b19ae4945ac526a7fc47f7d8efcf57d9d1",
+  "jvm_tests": 159,
+  "jvm_failures": 0,
+  "android_full_run_tests": 120,
+  "android_full_run_result": "OK",
+  "lint_errors": 0,
+  "lint_warnings": 5,
+  "real_gemini_conversation_tested": false,
+  "previous_2_3_24_sha256": "defef441b9d697aa84c6dc5bb2b7f1ad816cb735a689ca57ad8d264620c1a1e5"
+}

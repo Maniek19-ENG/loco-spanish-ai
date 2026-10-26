@@ -1,2 +1,7 @@
-204438deb222205e345cd86aea6b5c5fd35b99219d8eef272f886fc2fa6073f2  LOCO-Spanish-AI-2.3.18.apk
-aea15c3d1512f12d66da9b190b582df27a7d8cb04eb409f108f66b0ecc04a16a  LOCO-Spanish-AI-2.3.8-POWROT.apk
+defef441b9d697aa84c6dc5bb2b7f1ad816cb735a689ca57ad8d264620c1a1e5  app/src/main/assets/loco-2.3.24.apk
+a8c7103f0be70c2a0edd21ba79f30fdbaba80dbb034b5ba12826e7706f70841e  app/src/main/res/raw/mocking_laugh.wav
+204438deb222205e345cd86aea6b5c5fd35b99219d8eef272f886fc2fa6073f2  archives/LOCO-Spanish-AI-2.3.18.apk
+aea15c3d1512f12d66da9b190b582df27a7d8cb04eb409f108f66b0ecc04a16a  archives/LOCO-Spanish-AI-2.3.8-POWROT-z-2.3.18.apk
+7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar
+37d949d290cddd77d053a8b6d8d87519e807cbbcdada1c2d6662be2fa959b288  references/2.3.16/LOCO-Spanish-AI-2.3.16-ORYGINAL.apk
+f1877143442f2001ef0f09c5317aeaead5feb158873fdf4904c869a05d650981  references/2.3.8/LOCO-Spanish-AI-2.3.8-ORYGINAL.apk

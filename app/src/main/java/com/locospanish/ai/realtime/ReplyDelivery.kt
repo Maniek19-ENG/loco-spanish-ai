@@ -1,0 +1,21 @@
+package com.locospanish.ai.realtime
+import com.locospanish.ai.model.*
+object ReplyDelivery {
+ fun performance(s:Settings,verdict:String):String {
+  if(!SpokenRoastPolicy.enabled(s)) return "Hiszpański wzorzec pozostaje naturalny i wyraźny."
+  return if(verdict=="ERROR" && s.personality.roast>=80)
+   "W GŁOSIE odegraj szyderczą reakcję na tę konkretną pomyłkę: krótka parodia oburzonego rozmówcy i ironiczny nacisk na puentę. Aplikacja odtwarza już prawdziwy szyderczy śmiech PRZED twoją odpowiedzią. TERAZ od razu riposta, potem poprawka. Nie dokładaj drugiego śmiechu, nie czytaj sylab ha ani didaskaliów. Mów żywo i potocznie, jak kumpel na ulicy. Nie odczytuj didaskaliów. Nie parodiuj hiszpańskiego wzorca: kpinę odgrywasz w polskiej riposcie, poprawkę po hiszpańsku wymawiaj prawidłowo."
+  else "W GŁOSIE wypowiedz puentę z ironią, energią i potocznym rytmem. Bez urzędowego tonu, bez obowiązkowego śmiechu i bez sugerowania błędu przy poprawnej odpowiedzi. Hiszpański wzorzec zawsze bez parodii."
+ }
+ fun instruction(s:Settings,roast:String,verdict:String,help:Boolean,review:String):String {
+  val joke=if(!SpokenRoastPolicy.enabled(s)) "Bez docinki." else if(roast.isNotBlank()) "NAJPIERW W AUDIO wypowiedz planned_roast DOSŁOWNIE: $roast. To część odpowiedzi do usłyszenia, nie wewnętrzna notatka. Nie zastępuj go słowem dobrze ani grzeczną pochwałą." else {
+   val intensity=if(s.personality.roast>=80) "Mocny roast komediowy: konkret z wypowiedzi + absurdalny skutek + celna puenta. Pyskaty kumpel, nie urzędowy lektor. Odegraj krótko oburzonego rozmówcę ze sceny i zmień intonację. Śmiech może krótko towarzyszyć puencie, ale nie dodawaj go obowiązkowo w każdej odpowiedzi. Nie samo przezwisko ani ogólny żart o inteligencji." else "Krótka sytuacyjna docinka o sile ustawionej suwakiem ${s.personality.roast}/100."
+   val swear=when(s.personality.profanity) { Profanity.STRONG -> "Mocne polskie przekleństwa bez cenzury: kurwa, pierdolony, jebany, chuj — dobierz do zdania i puenty, nie recytuj listy. Riposta ma odnosić się do DOSŁOWNYCH słów ucznia i znaczenia jego pomyłki; inne zdanie musi dostać inny żart. Odegraj jedną krótką kwestię postaci z tej sytuacji, zaskocz ostrą puentą. Żadnych stałych wyzwisk ani ogólnych żartów o mózgu.";Profanity.LIGHT -> "Tylko lekkie przekleństwa.";Profanity.OFF -> "Bez przekleństw." }
+   "NAJPIERW W AUDIO wymyśl i wypowiedz jedną NOWĄ docinkę według roast_context i roast_brief. $intensity $swear Nie recytuj wcześniejszych żartów ani recent_roasts_to_avoid."
+  }
+  val truth=if(verdict=="ERROR" && s.autoCorrection && s.personality.correction>0) "Parodia dotyczy wyłącznie potwierdzonej konkretnej wpadki z attempted_word, learner i verified_correction, nigdy nowego next_word. Krótki udawany dialog lub teatralna reakcja na absurdalny sens pomyłki; nie naśladuj błędnej hiszpańskiej wymowy jako wzorca. Po puencie prawdziwa poprawka." else "Nie wymyślaj błędu, nie zarzucaj złej wymowy przy poprawnej odpowiedzi lub pytaniu."
+  val task=when { help -> "POTEM odpowiedz na rzeczywiste pytanie ucznia. Bez wymuszania powtarzania i bez nowego zadania.";review.isNotBlank() -> "POTEM $review";else -> "POTEM zastosuj task_contract: wypowiedz DOKŁADNIE learner_question. Jedno zadanie z ekranu; własne next_word z wcześniejszej propozycji nie jest zadaniem. Jeśli aplikacja odtwarza wzorzec, nie czytaj hiszpańskiego słowa drugi raz." }
+  if(help) return "NAJPIERW odpowiedz na rzeczywiste pytanie ucznia, zgodnie z help_answer i help_instruction. To prośba o naukę, NIE błędna próba. Podaj konkretne znaczenie lub sposób powiedzenia, nie sam śmiech ani ocenę. Jeśli aplikacja odtwarza wzorzec, nie duplikuj hiszpańskiego audio. "+(if(SpokenRoastPolicy.enabled(s)) "POTEM dodaj świeżą, sytuacyjną docinkę z przekleństwami zgodnymi z ustawieniami: "+joke.replace("NAJPIERW W AUDIO","W AUDIO") else "Bez docinki, zgodnie z ustawieniami.")+" Nie kończ odpowiedzi na samej parodii, nie wymyślaj błędu, nie przechodź do nowego słowa. Bez wymuszania powtarzania."
+  return "$joke $truth $task ${performance(s,verdict)} Krótko i od razu w tej samej odpowiedzi audio; bez dodatkowej tury i bez czytania nazw pól."
+ }
+}

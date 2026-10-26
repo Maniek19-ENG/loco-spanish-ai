@@ -1,0 +1,26 @@
+{
+  "version": "2.3.25",
+  "versionCode": 56,
+  "sha256": "986ff92ca698d624e9ed7eb3091f03f98ea8989be2e8e2998e33951fde25590d",
+  "previous_version": "2.3.24",
+  "previous_sha256": "defef441b9d697aa84c6dc5bb2b7f1ad816cb735a689ca57ad8d264620c1a1e5",
+  "jvm": {
+    "tests": 154,
+    "failures": 0
+  },
+  "android": {
+    "full_run_tests": 116,
+    "passed": 115,
+    "obsolete_no_laughter_assertion_failures": 1,
+    "updated_expectation_rerun": "OK (1 test)",
+    "production_changed_after_full_run": false
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 5
+  },
+  "rollback_roundtrip": "2.3.25 -> original 2.3.24 -> 2.3.25, install -r, no uninstall and no downgrade flag",
+  "original_laughter_wav_sha256": "a8c7103f0be70c2a0edd21ba79f30fdbaba80dbb034b5ba12826e7706f70841e",
+  "real_gemini_audio_tested": false,
+  "notes": "Audio ordering and assessment used simulated server and test voices; original PCM and APK payload hashes verified."
+}
