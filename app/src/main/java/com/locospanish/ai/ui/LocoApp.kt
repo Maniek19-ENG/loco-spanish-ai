@@ -46,14 +46,18 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-private val Lime = Color(0xFF19E6D0)
-private val NeonSoft = Color(0xFF80FFF2)
-private val ElectricBlue = Color(0xFF77A8D9)
-private val Ink = Color(0xFF010708)
-private val Muted = Color(0xFF8BAEAD)
-private val Panel = Color(0xE608191C)
-private val PanelStrong = Color(0xFF071215)
-private val Hairline = Color(0x334DFFF0)
+private val Lime = Color(0xFF22E5D4)
+private val NeonSoft = Color(0xFF9DFFF5)
+private val ElectricBlue = Color(0xFF7C8CFF)
+private val Violet = Color(0xFFA855F7)
+private val Magenta = Color(0xFFFF4FD8)
+private val Ink = Color(0xFF05060B)
+private val Muted = Color(0xFF9AA6B8)
+private val Panel = Color(0x1AFFFFFF)
+private val PanelStrong = Color(0xFF0D1018)
+private val Hairline = Color(0x26FFFFFF)
+private val Accent = Brush.linearGradient(listOf(Lime, ElectricBlue, Violet))
+private val GlassEdge = Brush.linearGradient(listOf(Color(0x40FFFFFF), Color(0x0FFFFFFF), Color(0x33A855F7)))
 
 @Composable fun LocoApp(vm: LocoViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -90,14 +94,15 @@ private val Hairline = Color(0x334DFFF0)
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
     MaterialTheme(colorScheme = darkColorScheme(primary = Lime, onPrimary = Ink, background = Ink,
-        onBackground = Color(0xFFE9FFFC), surface = PanelStrong, surfaceVariant = Panel, onSurface = Color(0xFFE9FFFC), secondary = ElectricBlue,
+        onBackground = Color(0xFFF2F5FF), surface = PanelStrong, surfaceVariant = Color(0xFF151927), onSurface = Color(0xFFF2F5FF), secondary = Violet, onSurfaceVariant = Muted,
         outline = Hairline, error = Color(0xFFFF746C))) {
         Box(Modifier.fillMaxSize().background(Ink)) {
         NeonBackdrop()
         Scaffold(containerColor = Color.Transparent, contentColor = Color(0xFFE9FFFC), bottomBar = {
-            if (!active && settings.onboardingDone) NavigationBar(containerColor = PanelStrong.copy(alpha = .96f), tonalElevation = 0.dp) {
+            if (!active && settings.onboardingDone) NavigationBar(containerColor = Color(0xE60B0D16), tonalElevation = 0.dp) {
                 listOf("Start" to "◉", "Scenariusze" to "▤", "Osobowość" to "✦", "Postępy" to "↗", "Ustawienia" to "⚙").forEach { (name, icon) ->
                     NavigationBarItem(selected = page == name, onClick = { page = name }, icon = { Text(icon, fontSize = 22.sp) },
+                        colors = NavigationBarItemDefaults.colors(indicatorColor = Lime.copy(alpha = .16f), selectedIconColor = NeonSoft, selectedTextColor = NeonSoft, unselectedIconColor = Muted, unselectedTextColor = Muted),
                         label = { Text(name, fontSize = 10.sp, maxLines = 1) })
                 }
             }
@@ -112,7 +117,7 @@ private val Hairline = Color(0x334DFFF0)
                     Text("Możesz mówić po polsku. LOCO podpowie zdanie po hiszpańsku i pomoże Ci je przećwiczyć.", color = Muted)
                     InfoCard("Głos generowany przez AI", "Rozmawiasz przez internet z Gemini. Użyj klucza z projektu Free Tier bez płatnych rozliczeń. Darmowy limit ustala Google. Audio i krótkie notatki z nauki trafiają do Google; historia zapisuje się na telefonie. Bez komputera i bez abonamentu API.")
                     Text("Rozmowa działa na otwartym ekranie aplikacji. Wyjście do innej aplikacji kończy sesję. Roast jest opcjonalny i możesz go wyłączyć.", color = Muted)
-                    Button(onClick = { vm.update(settings.copy(onboardingDone = true)); page = "Ustawienia" }, modifier = Modifier.fillMaxWidth()) { Text("SKONFIGURUJ I ZACZNIJ") }
+                    GradientButton("SKONFIGURUJ I ZACZNIJ") { vm.update(settings.copy(onboardingDone = true)); page = "Ustawienia" }
                 } else {
                     if (notice.isNotBlank()) InfoCard("Informacja", notice)
                     if (permissionDenied) {
@@ -144,29 +149,42 @@ private val Hairline = Color(0x334DFFF0)
     }
 }
 @Composable private fun NeonBackdrop() {
+    val drift by rememberInfiniteTransition(label = "aurora").animateFloat(0f, (2 * PI).toFloat(),
+        infiniteRepeatable(tween(26000, easing = LinearEasing)), label = "drift")
     Canvas(Modifier.fillMaxSize()) {
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF010506), Color(0xFF021013), Color(0xFF010708))))
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(Color(0x3322D9D0), Color(0x14138E91), Color.Transparent),
-                center = Offset(size.width * .5f, size.height * .28f),
-                radius = size.width * .85f
-            ),
-            center = Offset(size.width * .5f, size.height * .28f), radius = size.width * .85f
-        )
-        drawLine(ElectricBlue.copy(alpha = .55f), Offset(1f, 0f), Offset(1f, size.height), 2f)
-        drawLine(ElectricBlue.copy(alpha = .55f), Offset(size.width - 1f, 0f), Offset(size.width - 1f, size.height), 2f)
+        drawRect(Brush.verticalGradient(listOf(Color(0xFF070912), Ink, Color(0xFF04050A))))
+        fun blob(color: Color, x: Float, y: Float, r: Float) {
+            val c = Offset(size.width * x, size.height * y)
+            drawCircle(Brush.radialGradient(listOf(color, Color.Transparent), center = c, radius = size.width * r), radius = size.width * r, center = c)
+        }
+        blob(Color(0x3322E5D4), .25f + .12f * cos(drift), .18f + .05f * sin(drift), .9f)
+        blob(Color(0x2EA855F7), .85f + .1f * sin(drift), .42f + .08f * cos(drift), .85f)
+        blob(Color(0x1F7C8CFF), .4f + .15f * sin(drift * 2), .92f, .8f)
+    }
+}
+@Composable private fun GlassCard(modifier: Modifier = Modifier, radius: Int = 26, content: @Composable ColumnScope.() -> Unit) {
+    Surface(color = Panel, shape = RoundedCornerShape(radius.dp), border = BorderStroke(1.dp, GlassEdge), modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
+    }
+}
+@Composable private fun GradientButton(label: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    Button(onClick = onClick, enabled = enabled, contentPadding = PaddingValues(),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Ink, disabledContainerColor = Color(0x22FFFFFF)),
+        shape = RoundedCornerShape(18.dp), modifier = modifier.fillMaxWidth().heightIn(min = 58.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 58.dp).background(if (enabled) Accent else Brush.linearGradient(listOf(Color(0x22FFFFFF), Color(0x22FFFFFF))), RoundedCornerShape(18.dp)),
+            contentAlignment = Alignment.Center) {
+            Text(label, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.2.sp, color = if (enabled) Ink else Muted)
+        }
     }
 }
 @Composable private fun Header(kicker: String, title: String) {
-    Text(kicker, color = Lime, letterSpacing = 3.5.sp, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-    Text(title, style = MaterialTheme.typography.headlineLarge, color = Color(0xFFE9FFFC), fontWeight = FontWeight.Bold)
+    Text(kicker, style = androidx.compose.ui.text.TextStyle(brush = Accent), letterSpacing = 3.5.sp, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text(title, style = MaterialTheme.typography.displaySmall.copy(brush = Brush.linearGradient(listOf(Color.White, Color(0xFFCFD8FF), NeonSoft))),
+        fontWeight = FontWeight.Black, lineHeight = 40.sp)
 }
 @Composable private fun InfoCard(title: String, body: String) {
-    Surface(color = Panel, shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Hairline), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(title, color = NeonSoft, fontWeight = FontWeight.SemiBold); Text(body, color = Muted, style = MaterialTheme.typography.bodyMedium)
-        }
+    GlassCard(radius = 22) {
+        Text(title, color = NeonSoft, fontWeight = FontWeight.SemiBold); Text(body, color = Muted, style = MaterialTheme.typography.bodyMedium)
     }
 }
 private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds % 60)
@@ -175,25 +193,39 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     Header("LOCO / SPANISH AI", "Hiszpański bez litości.\nPolski bez cenzury.")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         AssistChip(onClick = { open("Ustawienia") }, label = { Text("${settings.level} • zmień poziom") })
-        AssistChip(onClick = { open("Postępy") }, label = { Text("${progress.streak} dni z rzędu") })
+        AssistChip(onClick = { open("Postępy") }, label = { Text("Postępy →") })
     }
     PersonalityCard(settings.forDialog().personality, personality)
     if(settings.tiktokStyle && !settings.previousVersionMode) InfoCard("STYL Z FILMIKÓW — WŁĄCZONY", "Szyderczy nauczyciel • roast 100 • mocne przekleństwa")
-    Surface(color = Panel, shape = RoundedCornerShape(28.dp), border = BorderStroke(1.dp, Hairline)) {
-        Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("TWOJA NASTĘPNA RUNDA", fontSize = 11.sp, letterSpacing = 2.sp, color = Muted)
-            Text(Scenarios.get(selected).title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(Scenarios.get(selected).goal, color = Muted)
-            Text("Ty próbujesz. LOCO szydzi, poprawia i rzuca kolejne wyzwanie. Nie znasz słowa? Zapytaj po polsku.", color = Lime)
-            Button(onClick = start, modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp), shape = RoundedCornerShape(16.dp)) { Text("ROZPOCZNIJ ROZMOWĘ", fontWeight = FontWeight.Bold) }
+    GlassCard(radius = 30) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("TWOJA NASTĘPNA RUNDA", fontSize = 11.sp, letterSpacing = 2.sp, color = Muted, modifier = Modifier.weight(1f))
+            Surface(color = Color.Transparent, shape = RoundedCornerShape(50), border = BorderStroke(1.dp, Accent)) {
+                Text(settings.level.name, Modifier.padding(horizontal = 10.dp, vertical = 3.dp), color = NeonSoft, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
         }
+        Text(Scenarios.get(selected).title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+        Text(Scenarios.get(selected).goal, color = Muted)
+        Text("Ty próbujesz. LOCO szydzi, poprawia i rzuca kolejne wyzwanie. Nie znasz słowa? Zapytaj po polsku.", color = NeonSoft, fontSize = 14.sp)
+        GradientButton("ROZPOCZNIJ ROZMOWĘ", onClick = start)
     }
-    Text("Dziś: ${duration(progress.todaySeconds)} rozmowy", style = MaterialTheme.typography.titleLarge)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        StatTile("DZIŚ", duration(progress.todaySeconds), Modifier.weight(1f))
+        StatTile("SERIA", "${progress.streak} dni", Modifier.weight(1f))
+    }
     Text("Wybierz kierunek", fontWeight = FontWeight.Bold)
     Choices(listOf("free" to "Luźna rozmowa", "maintenance" to "Praca", "restaurant" to "Restauracja", "daily" to "Codzienna rozmowa"), selected, select)
     TextButton(onClick = { open("Scenariusze") }) { Text("WSZYSTKIE 18 SCENARIUSZY →") }
     InfoCard("Ostatnia sesja", library.sessions.lastOrNull()?.let { "${Scenarios.get(it.scenarioId).title} • ${duration(it.durationSeconds)}" } ?: "Twoja pierwsza rozmowa dopiero przed Tobą.")
     InfoCard("Ostatnio ćwiczone słowa", library.sessions.asReversed().asSequence().flatMap { it.learning.asSequence() }.filter { it.kind == "word" }.map { it.term }.distinct().take(6).joinToString(" • ").ifBlank { "Tutaj pojawią się słowa z Twoich rozmów." })
+}
+@Composable private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(color = Panel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, GlassEdge), modifier = modifier) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, color = Muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.headlineSmall.copy(brush = Accent), fontWeight = FontWeight.Black)
+        }
+    }
 }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun Choices(items: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
@@ -205,8 +237,8 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     Header("18 SYTUACJI", "Hiszpański do życia.")
     Text("Poziom przy scenariuszu to sugerowana trudność. LOCO dopasuje zadania do Twojego poziomu.", color = Muted)
     Scenarios.all.forEach { scenario ->
-        Surface(onClick = { select(scenario.id) }, color = if (selected == scenario.id) Color(0xFF073337) else Panel,
-            border = BorderStroke(1.dp, if (selected == scenario.id) Lime.copy(alpha = .65f) else Hairline), shape = RoundedCornerShape(18.dp)) {
+        Surface(onClick = { select(scenario.id) }, color = if (selected == scenario.id) Color(0x2622E5D4) else Panel,
+            border = if (selected == scenario.id) BorderStroke(1.5.dp, Accent) else BorderStroke(1.dp, GlassEdge), shape = RoundedCornerShape(22.dp)) {
             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("${scenario.title}  /  ${scenario.level}", fontWeight = FontWeight.SemiBold)
                 Text(scenario.goal, color = Muted, style = MaterialTheme.typography.bodyMedium)
@@ -264,7 +296,11 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     ConversationOrb(level,if(correctionVisible && state.phase!=VoicePhase.ERROR) VoicePhase.ERROR else state.phase)
     Surface(color = Panel, shape = RoundedCornerShape(50), border = BorderStroke(1.dp, Hairline), modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)) {
         Row(Modifier.padding(horizontal = 18.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Canvas(Modifier.size(8.dp)) { drawCircle(if (state.phase == VoicePhase.ERROR) Color(0xFFFF746C) else Lime) }
+            val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(.45f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
+            Canvas(Modifier.size(10.dp)) {
+                val dot = when (state.phase) { VoicePhase.ERROR -> Color(0xFFFF5C7A); VoicePhase.SPEAKING -> Color(0xFF30F997); VoicePhase.THINKING, VoicePhase.CONNECTING, VoicePhase.RECONNECTING -> Violet; else -> Lime }
+                drawCircle(dot.copy(alpha = .3f * pulse), radius = size.minDimension); drawCircle(dot, radius = size.minDimension / 2 * (.7f + .3f * pulse))
+            }
             Text(if (state.muted) "MIKROFON WYŁĄCZONY" else state.phase.label, color = if (state.phase == VoicePhase.ERROR) Color(0xFFFF746C) else NeonSoft,
                 fontWeight = FontWeight.Bold, letterSpacing = 3.sp, fontSize = 12.sp)
         }
@@ -376,7 +412,7 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     if (p.preset == Preset.CUSTOM) OutlinedTextField(value = p.customPrompt, onValueChange = { val value=it.take(2000); change { current -> current.copy(customPrompt = value) } },
         label = { Text("CUSTOM PROMPT") }, supportingText = { Text("Preferencje stylu • ${p.customPrompt.length}/2000") }, modifier = Modifier.fillMaxWidth(), minLines = 4)
     Text("Humor reaguje na rozmowę. Jeśli utkniesz, LOCO uprości zadanie. Intensywność docinek zmieniasz w ustawieniach charakteru.", color = Muted)
-    Button(onClick = vm::preview, enabled = !sampling, modifier = Modifier.fillMaxWidth()) { Text(if(sampling) "GENERUJĘ…" else "TESTUJ OSOBOWOŚĆ") }
+    GradientButton(if(sampling) "GENERUJĘ…" else "TESTUJ OSOBOWOŚĆ", enabled = !sampling, onClick = vm::preview)
     Text("Próbka tekstowa Gemini dla błędu „Yo soy 31 años”, bez mikrofonu i zapisu postępu. Korzysta z darmowego limitu modelu Gemini 3.8 Flash.", color = Muted, fontSize = 12.sp)
     if(sample.isNotBlank()) InfoCard("Próbka reakcji",sample)
 }
