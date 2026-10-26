@@ -149,15 +149,9 @@ private val GlassEdge = Brush.linearGradient(listOf(Color(0x40FFFFFF), Color(0x0
     }
 }
 @Composable private fun NeonBackdrop() {
-    // A slow delayed tick, read only while drawing: the light drifts without recomposing the screen
-    // and without frame-by-frame callbacks that would keep the main thread permanently busy.
-    val driftState = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        val started = android.os.SystemClock.elapsedRealtime()
-        while (true) { kotlinx.coroutines.delay(120); driftState.floatValue = ((android.os.SystemClock.elapsedRealtime() - started) % 26000L) / 26000f * (2 * PI).toFloat() }
-    }
+    // Static aurora: no background ticking while the learner talks or the app starts.
     Canvas(Modifier.fillMaxSize()) {
-        val drift = driftState.floatValue
+        val drift = 0.7f
         drawRect(Brush.verticalGradient(listOf(Color(0xFF070912), Ink, Color(0xFF04050A))))
         fun blob(color: Color, x: Float, y: Float, r: Float) {
             val c = Offset(size.width * x, size.height * y)
