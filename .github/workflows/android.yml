@@ -37,14 +37,14 @@ jobs:
           "$SDKM" --install "platform-tools"
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests, lint, debug APK, test APK
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleAndroidTest
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleAndroidTest assemblePhone
       - name: Publish test APK as a direct download (pre-release "loco-test")
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/claude/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # The phone copy drops the 82 MB rollback installer (useless in a side-by-side test app) and is re-signed with the same debug key.
-          cp app/build/outputs/apk/debug/app-debug.apk slim.apk
+          cp app/build/outputs/apk/phone/app-phone.apk slim.apk
           zip -q -d slim.apk 'assets/loco-*.apk'
           BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           "$BT/zipalign" -f -p 4 slim.apk aligned.apk
@@ -116,7 +116,7 @@ jobs:
             adb logcat -d -b crash | tail -60 || true
             adb install -r app/build/outputs/apk/debug/app-debug.apk >/dev/null 2>&1 || true
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk >/dev/null 2>&1 || true
-            sh -c 'adb shell am instrument -w -e class com.locospanish.ai.StartupTest com.locospanish.ai.test.test/androidx.test.runner.AndroidJUnitRunner > /tmp/startup.txt 2>&1 &'
+            sh -c 'adb shell am instrument -w -e class com.locospanish.ai.StartupTest com.locospanish.ai.test/androidx.test.runner.AndroidJUnitRunner > /tmp/startup.txt 2>&1 &'
             sleep 18
             adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 && adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -o 'text="[^"]*"\|scrollable="true"\|clickable="true"' | grep -v 'text=""' | head -80 || true
             adb logcat -d -b crash | tail -60 || true

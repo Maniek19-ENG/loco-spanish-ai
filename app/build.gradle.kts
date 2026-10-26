@@ -36,8 +36,10 @@ android {
         }
     }
     buildTypes {
-        debug {
-            // A test build installs beside the signed app instead of colliding with it.
+        // Side-by-side copy for phones ("LOCO TEST"); debug keeps the real id so rollback tests stay meaningful.
+        create("phone") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
             applicationIdSuffix = ".test"
             versionNameSuffix = "-TEST"
             manifestPlaceholders["appLabel"] = "LOCO TEST"
