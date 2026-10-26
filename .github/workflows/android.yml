@@ -48,7 +48,9 @@ jobs:
           zip -q -d slim.apk 'assets/loco-*.apk'
           BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           "$BT/zipalign" -f -p 4 slim.apk aligned.apk
-          "$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out LOCO-TEST.apk aligned.apk
+          KS="$(find "$HOME" "${ANDROID_USER_HOME:-/nonexistent}" -name debug.keystore 2>/dev/null | head -1)"
+          echo "debug keystore: $KS"
+          "$BT/apksigner" sign --ks "$KS" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out LOCO-TEST.apk aligned.apk
           "$BT/apksigner" verify LOCO-TEST.apk
           ls -l LOCO-TEST.apk
           NOTES="Testowa wersja LOCO TEST (podpis debug). Instaluje się obok zwykłej LOCO, nie zastępuje jej. Commit ${GITHUB_SHA::7}. Bez testu prawdziwej rozmowy z Gemini."
