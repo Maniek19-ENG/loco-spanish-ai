@@ -5,7 +5,7 @@ Kod w gałęzi `claude/kind-gates-jnt4sb`. Wersja i kod instalacji NIE zostały 
 ## Opóźnienia ("myśli za długo", "laguje")
 
 - Przyczyna: w trakcie lekcji całe audio odpowiedzi Gemini było buforowane (`provisionalAudio`) aż do `generationComplete`, więc uczeń nie słyszał nic, dopóki model nie wygenerował całej wypowiedzi. Gdy tekst nie przechodził reguł (np. styl roastu), odpowiedź była wyrzucana i generowana drugi raz.
-- Teraz: odpowiedź po zweryfikowanej ocenie (`assess_user_turn`) jest odtwarzana od razu, porcja po porcji. Buforowany jest tylko szkic sprzed oceny. Jeśli w trakcie odtwarzania tekst zaprzecza zweryfikowanej ocenie (np. "źle" przy CORRECT) albo pyta o inne słowo niż na ekranie, audio jest przerywane i uruchamiana jest dotychczasowa naprawa.
+- Teraz: odpowiedź po zweryfikowanej ocenie (`assess_user_turn`) jest odtwarzana porcja po porcji. Buforowany jest szkic sprzed oceny, odpowiedzi na polecenia aplikacji (start, przyciski) oraz — przy mocnym roaście — tylko pierwsze zdanie, dopóki riposta nie zostanie potwierdzona w transkrypcji; potem reszta płynie od razu. Tekst każdej porcji jest sprawdzany przed odtworzeniem. Jeśli w trakcie odtwarzania tekst zaprzecza zweryfikowanej ocenie (np. "źle" przy CORRECT) albo pyta o inne słowo niż na ekranie, audio jest przerywane i uruchamiana jest dotychczasowa naprawa.
 - Usłyszanej już odpowiedzi nie generuje się ponownie wyłącznie z powodu stylu riposty.
 
 ## Rozumienie wypowiedzi
@@ -24,6 +24,8 @@ Kod w gałęzi `claude/kind-gates-jnt4sb`. Wersja i kod instalacji NIE zostały 
 
 - Środowisko chmurowe nie ma dostępu do `dl.google.com` (Android SDK / Google Maven), dlatego dodano `.github/workflows/android.yml`: testy JVM, lint, debug APK i testy na emulatorze na serwerach GitHub. APK debug jest artefaktem przebiegu (podpis debug — nie zaktualizuje wersji zainstalowanej z podpisem użytkownika).
 - Logikę bez UI sprawdzono lokalnie na klasach Androida z Robolectric (Maven Central): 140 testów JVM bez błędów (3 klasy wymagające DataStore uruchamia dopiero CI).
+- Wynik CI (run 40314810800): testy JVM, lint, debug APK — OK; testy na emulatorze API 34: 120/120 OK. Oryginalna 2.3.25 (d6c5f3c) w tym samym CI: 120/120 OK.
+- 11 testów emulatora początkowo padło po włączeniu strumieniowania (odtwarzanie przed walidacją); poprawiono kod, nie testy. `StartupTest` okazał się niestabilny czasowo (osobno przechodził); dodano w nim wyłącznie zapis ekranu do logcat (`LocoDiag`) przy przekroczeniu czasu, bez zmiany warunków.
 
 ## Niesprawdzone
 
