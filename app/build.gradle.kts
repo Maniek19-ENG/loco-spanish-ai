@@ -24,6 +24,7 @@ android {
         versionCode = 56
         versionName = "2.3.25"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appLabel"] = "LOCO Spanish AI"
     }
     buildFeatures { compose = true }
     signingConfigs {
@@ -35,6 +36,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // A test build installs beside the signed app instead of colliding with it.
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-TEST"
+            manifestPlaceholders["appLabel"] = "LOCO TEST"
+        }
         release {
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("locoRelease")
             isDebuggable = false

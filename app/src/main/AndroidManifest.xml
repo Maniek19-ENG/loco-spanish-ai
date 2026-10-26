@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
     <queries><intent><action android:name="android.intent.action.TTS_SERVICE" /></intent></queries>
-    <application android:label="LOCO Spanish AI" android:theme="@style/AppTheme"
+    <application android:label="${appLabel}" android:theme="@style/AppTheme"
         android:icon="@drawable/ic_loco" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules"
         android:networkSecurityConfig="@xml/network_security_config" android:supportsRtl="true">
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.rollback" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/rollback_paths" /></provider>
