@@ -14,7 +14,7 @@ enum class AudioRoutePreference(val label: String) { AUTO("Automatycznie"), BLUE
 data class Personality(val preset: Preset = Preset.FRIEND, val sarcasm: Int = 25, val cheek: Int = 20,
     val roast: Int = 20, val correction: Int = 60, val profanity: Profanity = Profanity.OFF,
     val roastMode: Boolean = false, val customPrompt: String = "")
-data class Settings(val level: Level = Level.A1, val voice: String = "Kore", val speed: Float = .85f,
+data class Settings(val level: Level = Level.A1, val voice: String = "Kore", val speed: Float = 1f,
     val autoCorrection: Boolean = true, val personality: Personality = Personality(Preset.ROAST, 100, 100, 100, 75, Profanity.STRONG, true),
     val freeTierConfirmed: Boolean = false, val onboardingDone: Boolean = false, val styleRevision: Int = 1,
     val audioRoute: AudioRoutePreference = AudioRoutePreference.AUTO, val legacyBehavior: Boolean = false,

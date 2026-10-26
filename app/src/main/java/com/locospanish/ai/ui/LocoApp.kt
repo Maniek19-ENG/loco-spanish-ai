@@ -127,7 +127,7 @@ private val Hairline = Color(0x334DFFF0)
                     }
                     else if (active) LiveScreen(seconds, Scenarios.get(scenario).title, (if (settings.previousVersionMode) settings.restoredPrevious().personality else settings.forDialog().personality), vm) { endDialog = true }
                     else when (page) {
-                        "Start" -> HomeScreen(settings, library, vm, scenario, { vm.selected.value = it }, { begin() }, { page = "Osobowość" })
+                        "Start" -> HomeScreen(settings, library, vm, scenario, { vm.selected.value = it }, { begin() }, { page = "Osobowość" }) { page = it }
                         "Scenariusze" -> ScenarioScreen(scenario) { vm.selected.value = it; page = "Start" }
                         "Osobowość" -> PersonalityScreen(settings, vm)
                         "Postępy" -> ProgressScreen(library,vm)
@@ -170,12 +170,12 @@ private val Hairline = Color(0x334DFFF0)
     }
 }
 private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds % 60)
-@Composable private fun HomeScreen(settings: Settings, library: Library, vm:LocoViewModel, selected: String, select: (String) -> Unit, start: () -> Unit, personality: () -> Unit) {
+@Composable private fun HomeScreen(settings: Settings, library: Library, vm:LocoViewModel, selected: String, select: (String) -> Unit, start: () -> Unit, personality: () -> Unit, open: (String) -> Unit) {
     val progress by vm.progress.collectAsStateWithLifecycle()
     Header("LOCO / SPANISH AI", "Hiszpański bez litości.\nPolski bez cenzury.")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AssistChip(onClick = {}, label = { Text("${settings.level} • Twój poziom") })
-        AssistChip(onClick = {}, label = { Text("${progress.streak} dni z rzędu") })
+        AssistChip(onClick = { open("Ustawienia") }, label = { Text("${settings.level} • zmień poziom") })
+        AssistChip(onClick = { open("Postępy") }, label = { Text("${progress.streak} dni z rzędu") })
     }
     PersonalityCard(settings.forDialog().personality, personality)
     if(settings.tiktokStyle && !settings.previousVersionMode) InfoCard("STYL Z FILMIKÓW — WŁĄCZONY", "Szyderczy nauczyciel • roast 100 • mocne przekleństwa")
@@ -191,6 +191,7 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     Text("Dziś: ${duration(progress.todaySeconds)} rozmowy", style = MaterialTheme.typography.titleLarge)
     Text("Wybierz kierunek", fontWeight = FontWeight.Bold)
     Choices(listOf("free" to "Luźna rozmowa", "maintenance" to "Praca", "restaurant" to "Restauracja", "daily" to "Codzienna rozmowa"), selected, select)
+    TextButton(onClick = { open("Scenariusze") }) { Text("WSZYSTKIE 18 SCENARIUSZY →") }
     InfoCard("Ostatnia sesja", library.sessions.lastOrNull()?.let { "${Scenarios.get(it.scenarioId).title} • ${duration(it.durationSeconds)}" } ?: "Twoja pierwsza rozmowa dopiero przed Tobą.")
     InfoCard("Ostatnio ćwiczone słowa", library.sessions.asReversed().asSequence().flatMap { it.learning.asSequence() }.filter { it.kind == "word" }.map { it.term }.distinct().take(6).joinToString(" • ").ifBlank { "Tutaj pojawią się słowa z Twoich rozmów." })
 }
@@ -257,8 +258,10 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     }
     LiveWordCard(lesson,retry,onWordPresented)
     Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-    val correctionVisible=state.learning.isNotEmpty()
-    ConversationOrb(level,if(correctionVisible) VoicePhase.ERROR else state.phase)
+    val lastCorrection=state.learning.lastOrNull { it.kind in setOf("grammar","pronunciation") }?.id
+    var correctionVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(lastCorrection) { if(lastCorrection!=null) { correctionVisible=true;kotlinx.coroutines.delay(2500);correctionVisible=false } }
+    ConversationOrb(level,if(correctionVisible && state.phase!=VoicePhase.ERROR) VoicePhase.ERROR else state.phase)
     Surface(color = Panel, shape = RoundedCornerShape(50), border = BorderStroke(1.dp, Hairline), modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)) {
         Row(Modifier.padding(horizontal = 18.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Canvas(Modifier.size(8.dp)) { drawCircle(if (state.phase == VoicePhase.ERROR) Color(0xFFFF746C) else Lime) }
@@ -284,8 +287,8 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
         LiveAction(if(state.reviewMode) "Wróć do nauki" else "Odpytaj mnie",state.connected) { action(if(state.reviewMode) com.locospanish.ai.tutor.LessonAction.RESUME else com.locospanish.ai.tutor.LessonAction.REVIEW) }
         LiveAction(if(state.reviewMode) "Pomiń" else "Dalej",state.connected && !state.reviewCompleted) { action(com.locospanish.ai.tutor.LessonAction.NEXT) }
     }
-    Text("TRANSKRYPCJA", color = NeonSoft, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-    Text("Automatyczny zapis może zawierać błędy. Tekst AI może wyprzedzać głos.", color = Muted, fontSize = 12.sp)
+    Text("ROZMOWA • najnowsze na górze", color = NeonSoft, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, fontSize = 12.sp)
+    Text("Automatyczny zapis może zawierać błędy. Tekst AI może wyprzedzać głos.", color = Muted, fontSize = 11.sp)
     ConversationTranscript(transcript)
 
     }
@@ -299,7 +302,8 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
             onWordPresented(word.word,word.meaning)
         }
     }
-    Column(Modifier.fillMaxWidth().heightIn(min=80.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+    Surface(color=PanelStrong,shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,Brush.horizontalGradient(listOf(Lime.copy(alpha=.7f),ElectricBlue.copy(alpha=.5f)))),modifier=Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth().heightIn(min=80.dp).padding(horizontal=18.dp,vertical=14.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
         if(word.error.isNotBlank()) {
             Text(word.error,color=Color(0xFFFFA7A1))
             if(retry!=null) OutlinedButton(onClick=retry) { Text("POBIERZ SŁOWA PONOWNIE") }
@@ -310,15 +314,30 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
             Text(if(word.completed) "Poprawne: ${word.correct}/${word.total}" else "Jak powiesz po hiszpańsku „${word.meaning}”?",color=Color(0xFFE9FFFC),fontSize=21.sp,textAlign=TextAlign.Center)
         } else if(word.word.isNotBlank()) {
             Text(if(word.pending || word.error.isNotBlank()) "OSTATNIE HASŁO" else "POWIEDZ PO HISZPAŃSKU",color=Muted,fontSize=10.sp,letterSpacing=1.sp)
-            Text(word.word,color=NeonSoft,fontSize=26.sp,fontWeight=FontWeight.Bold)
-            Text(word.meaning,color=Muted,fontSize=16.sp)
+            Text(word.word,color=NeonSoft,fontSize=34.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center)
+            Text(word.meaning,color=Color(0xFFCFE9E6),fontSize=17.sp,textAlign=TextAlign.Center)
         } else Text(if(word.error.isNotBlank()) "Użyj przycisku POBIERZ SŁOWA PONOWNIE powyżej." else "Pobieram zadanie…",color=Muted)
+    }
     }
 }
 @Composable private fun ConversationTranscript(flow:kotlinx.coroutines.flow.StateFlow<List<Transcript>>) {
     val transcript by flow.collectAsStateWithLifecycle()
     if(transcript.isEmpty()) Text("Tutaj pojawi się Wasza rozmowa.",color=Muted)
-    transcript.forEach { line -> key(line.id) { InfoCard(if(line.role=="user") "Ty" else "LOCO${if(line.interrupted) " • przerwano" else ""}",line.text.ifBlank { "Rozpoznaję wypowiedź…" }) } }
+    transcript.asReversed().forEach { line -> key(line.id) { ChatBubble(line) } }
+}
+@Composable private fun ChatBubble(line:Transcript) {
+    val user=line.role=="user"
+    val word=line.id.startsWith("word:")
+    Box(Modifier.fillMaxWidth(),contentAlignment=if(user) Alignment.CenterEnd else Alignment.CenterStart) {
+        Surface(color=if(user) Color(0xFF0B3A3C) else if(word) Color(0xFF14263A) else Panel,
+            shape=RoundedCornerShape(topStart=18.dp,topEnd=18.dp,bottomStart=if(user) 18.dp else 4.dp,bottomEnd=if(user) 4.dp else 18.dp),
+            border=BorderStroke(1.dp,if(user) Lime.copy(alpha=.35f) else Hairline),modifier=Modifier.fillMaxWidth(.86f).wrapContentWidth(if(user) Alignment.End else Alignment.Start)) {
+            Column(Modifier.padding(horizontal=14.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                Text(if(user) "TY" else if(word) "WZORZEC" else "LOCO${if(line.interrupted) " • przerwano" else ""}",color=if(user) NeonSoft else Muted,fontSize=10.sp,letterSpacing=1.5.sp,fontWeight=FontWeight.Bold)
+                Text(line.text.ifBlank { "Rozpoznaję wypowiedź…" },color=Color(0xFFE9FFFC),fontSize=if(word) 20.sp else 15.sp,fontWeight=if(word) FontWeight.Bold else FontWeight.Normal)
+            }
+        }
+    }
 }
 @Composable private fun LiveAction(label: String, enabled: Boolean, action: () -> Unit) {
     OutlinedButton(onClick = action, enabled = enabled, shape = RoundedCornerShape(50), border = BorderStroke(1.dp, Hairline), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
@@ -381,12 +400,13 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     Text("Wersja aplikacji: $installedVersion", color = Muted)
     Text("Język interfejsu: polski", color = Muted)
     Text("Poziom hiszpańskiego", fontWeight = FontWeight.Bold)
-    Choices(Level.entries.map { it.name to it.name }, s.level.name) { val level = Level.valueOf(it); vm.update(s.copy(level = level, speed = level.pace.toFloat())) }
+    Choices(Level.entries.map { it.name to it.name }, s.level.name) { val level = Level.valueOf(it); vm.update(s.copy(level = level)) }
     Text(s.level.guidance, color = Muted)
     Text("Głos AI", fontWeight = FontWeight.Bold)
     Choices(GeminiProtocol.voices.map { it to it.replaceFirstChar { c -> c.uppercase() } }, s.voice) { vm.update(s.copy(voice = it)) }
-    Text("Preferowane tempo głosu: ${"%.2f".format(s.speed)}×")
-    Slider(value = s.speed, onValueChange = { vm.update(s.copy(speed = it)) }, valueRange = .6f..1.3f)
+    Text("Tempo głosu LOCO: ${"%.2f".format(s.speed)}×", fontWeight = FontWeight.SemiBold)
+    Slider(value = s.speed, onValueChange = { vm.update(s.copy(speed = (kotlin.math.round(it*20)/20f))) }, valueRange = .6f..1.2f)
+    Text("Działa od następnej rozmowy. 1.00× to naturalne tempo; przycisk Wolniej w rozmowie zwalnia dodatkowo.", color = Muted, fontSize = 12.sp)
     Toggle("Automatyczna korekta", s.autoCorrection) { vm.update(s.copy(autoCorrection = it)) }
     Text("Osobowość: ${s.personality.preset.label}. Zmień ją w zakładce Osobowość.", color = Muted)
     Text("Mikrofon i dźwięk rozmowy", fontWeight = FontWeight.Bold)

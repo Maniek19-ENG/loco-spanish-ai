@@ -140,7 +140,7 @@ class GeminiLiveClient(
         close(); lastPresentedWord=resumedPresented; activeLessonWord=resumedWord;acceptedWordUserId=resumedOwner;lastAcceptedWord=resumedAccepted;acceptedWordResponses.putAll(resumedResponses); val generation = epoch
         wordsOnlyLesson=settings.level==Level.A1 && !settings.previousVersionMode
         if(!settings.previousVersionMode) wordSpeaker=wordSpeakerFactory(key,settings.voice)
-        if(reset) { gentleSession=false;roastIndex=0;recentRoasts.clear();recentRoasts.addAll(recentComments.takeLast(24));review.stop();reviewBank.clear();reviewBank.addAll(reviewWords);savedLessonWord=null;sessionSpeed=1f;controlAction=null }
+        if(reset) { gentleSession=false;roastIndex=0;recentRoasts.clear();recentRoasts.addAll(recentComments.takeLast(24));review.stop();reviewBank.clear();reviewBank.addAll(reviewWords);savedLessonWord=null;sessionSpeed=settings.speed.takeIf { it>0f }?.coerceIn(.6f,1.2f) ?: 1f;controlAction=null }
         if(reset) { mutable.value = VoiceState(); toolIds.clear(); completionIds.clear(); toolResponses.clear(); taughtVocabulary.clear(); requestedLearningTopic = ""; pendingLessonWord = null; provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null }
         if(reset) { knownVocabulary.clear(); knownWordLabels.clear(); baselineKnownVocabulary.clear(); toolLearningIds.clear() }
         knownWords.forEach { knownWordLabels[AssessmentPolicy.key(it)]=it }
@@ -880,7 +880,7 @@ class GeminiLiveClient(
                 if(review.active) { if(review.finished) return;setWord(review.advance(false));syncReview() }
                 else { activeLessonWord?.let { taughtVocabulary.add(it.es) };setWord(LessonTurnPolicy.next(lessonScenario,null,knownVocabulary,taughtVocabulary,wordsOnly=true,preferScenario=requestedLearningTopic.isBlank())) }
             }
-            LessonAction.SLOWER -> { sessionSpeed=.75f;audio?.setSpeed(sessionSpeed) }
+            LessonAction.SLOWER -> { sessionSpeed=maxOf(.6f,minOf(sessionSpeed,1f)-.25f);audio?.setSpeed(sessionSpeed) }
             else -> Unit
         }
         val target=activeLessonWord
