@@ -170,13 +170,11 @@ private val GlassEdge = Brush.linearGradient(listOf(Color(0x40FFFFFF), Color(0x0
     }
 }
 @Composable private fun GradientButton(label: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(onClick = onClick, enabled = enabled, contentPadding = PaddingValues(),
-        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Ink, disabledContainerColor = Color(0x22FFFFFF)),
-        shape = RoundedCornerShape(18.dp), modifier = modifier.fillMaxWidth().heightIn(min = 58.dp)) {
-        Box(Modifier.fillMaxWidth().heightIn(min = 58.dp).background(if (enabled) Accent else Brush.linearGradient(listOf(Color(0x22FFFFFF), Color(0x22FFFFFF))), RoundedCornerShape(18.dp)),
-            contentAlignment = Alignment.Center) {
-            Text(label, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.2.sp, color = if (enabled) Ink else Muted)
-        }
+    val shape = RoundedCornerShape(18.dp)
+    Button(onClick = onClick, enabled = enabled, shape = shape,
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Ink, disabledContainerColor = Color.Transparent, disabledContentColor = Muted),
+        modifier = modifier.fillMaxWidth().heightIn(min = 58.dp).background(if (enabled) Accent else Brush.linearGradient(listOf(Color(0x22FFFFFF), Color(0x22FFFFFF))), shape)) {
+        Text(label, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.2.sp)
     }
 }
 @Composable private fun Header(kicker: String, title: String) {
