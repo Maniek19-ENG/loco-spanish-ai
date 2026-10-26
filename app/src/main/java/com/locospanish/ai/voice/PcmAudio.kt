@@ -60,12 +60,9 @@ class PcmAudio(context: Context, private val scope: CoroutineScope, preference: 
         val track = AudioTrack.Builder().setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
             .setAudioFormat(format).setTransferMode(AudioTrack.MODE_STREAM).setBufferSizeInBytes(maxOf(24000, AudioTrack.getMinBufferSize(24000,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT)*2)).build()
         player = track; check(track.state == AudioTrack.STATE_INITIALIZED)
-        track.play()
+        track.play(); record.startRecording()
         inputJob = scope.launch(Dispatchers.IO) {
             try {
-                route.awaitReady(3000)
-                if(closed) return@launch
-                record.startRecording()
                 val buffer = ByteArray(3200)
                 while(isActive && !closed) {
                     val n = record.read(buffer,0,buffer.size)
