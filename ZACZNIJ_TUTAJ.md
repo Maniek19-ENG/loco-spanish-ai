@@ -1,5 +1,9 @@
 # LOCO — projekt do dokończenia przez inne AI
 
+## Najnowsze zmiany robocze (po 2.3.25)
+
+Strumieniowanie odpowiedzi po ocenie, dopasowanie brzmieniowe słów na A1, dłuższe czekanie na koniec wypowiedzi, naprawy opcji i nowy wygląd. Szczegóły i granice testów: docs/ZMIANY-2.3.26-ROBOCZE.md. Budowanie: GitHub Actions (`.github/workflows/android.yml`). Bez realnego testu z Gemini.
+
 ## Ostatnia poprawka oceniania
 
 Po kolejnym zgłoszeniu odrzucania poprawnych pojedynczych słów odtworzono dwa błędy całego klienta i dodatkowe błędy rozpoznawania poprawnej odpowiedzi. Aktualny kod zawiera ich poprawki. Końcowy wynik: 159 testów JVM i pełne 120 testów Androida bez błędów. Szczegóły, logi sprzed naprawy i granice sprawdzenia: reports/STATUS.md oraz docs/NAPRAWA-OCENY-2.3.25.md. Instalator ma dopisek OCENA; nadal brak testu prawdziwej rozmowy na telefonie.
