@@ -58,7 +58,7 @@ class PcmAudio(context: Context, private val scope: CoroutineScope, preference: 
         if(NoiseSuppressor.isAvailable()) noise = NoiseSuppressor.create(record.audioSessionId)?.apply { enabled = true }
         val format = AudioFormat.Builder().setSampleRate(24000).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()
         val track = AudioTrack.Builder().setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-            .setAudioFormat(format).setTransferMode(AudioTrack.MODE_STREAM).setBufferSizeInBytes(maxOf(24000, AudioTrack.getMinBufferSize(24000,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT)*2)).build()
+            .setAudioFormat(format).setTransferMode(AudioTrack.MODE_STREAM).setBufferSizeInBytes(maxOf(9600, AudioTrack.getMinBufferSize(24000,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT))).build()
         player = track; check(track.state == AudioTrack.STATE_INITIALIZED)
         track.play(); record.startRecording()
         inputJob = scope.launch(Dispatchers.IO) {
@@ -81,11 +81,6 @@ class PcmAudio(context: Context, private val scope: CoroutineScope, preference: 
                     if(generation != epoch.get()) continue
                     if(previousEpoch != generation) { writtenFrames = 0; previousEpoch = generation }
                     if(reference) referencePlaying=true
-                    // A streamed reply starts after ~0.3 s is queued (or 0.3 s passed), so network jitter does not chop it.
-                    if(!reference && !playing) {
-                        val until=System.nanoTime()+300_000_000L
-                        while(output.pendingBytes<14400 && System.nanoTime()<until && generation==epoch.get() && !closed) delay(10)
-                    }
                     playing=true;onPlaying(true)
                     var offset = 0
                     while(offset < bytes.size && isActive && !closed && generation == epoch.get()) {
