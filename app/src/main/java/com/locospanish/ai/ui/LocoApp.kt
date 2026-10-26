@@ -149,11 +149,15 @@ private val GlassEdge = Brush.linearGradient(listOf(Color(0x40FFFFFF), Color(0x0
     }
 }
 @Composable private fun NeonBackdrop() {
-    // Read only while drawing, so the drifting light never recomposes the screen.
-    val driftState = rememberInfiniteTransition(label = "aurora").animateFloat(0f, (2 * PI).toFloat(),
-        infiniteRepeatable(tween(26000, easing = LinearEasing)), label = "drift")
+    // A slow delayed tick, read only while drawing: the light drifts without recomposing the screen
+    // and without frame-by-frame callbacks that would keep the main thread permanently busy.
+    val driftState = remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val started = android.os.SystemClock.elapsedRealtime()
+        while (true) { kotlinx.coroutines.delay(120); driftState.floatValue = ((android.os.SystemClock.elapsedRealtime() - started) % 26000L) / 26000f * (2 * PI).toFloat() }
+    }
     Canvas(Modifier.fillMaxSize()) {
-        val drift = driftState.value
+        val drift = driftState.floatValue
         drawRect(Brush.verticalGradient(listOf(Color(0xFF070912), Ink, Color(0xFF04050A))))
         fun blob(color: Color, x: Float, y: Float, r: Float) {
             val c = Offset(size.width * x, size.height * y)
@@ -296,7 +300,8 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
     ConversationOrb(level,if(correctionVisible && state.phase!=VoicePhase.ERROR) VoicePhase.ERROR else state.phase)
     Surface(color = Panel, shape = RoundedCornerShape(50), border = BorderStroke(1.dp, Hairline), modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)) {
         Row(Modifier.padding(horizontal = 18.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(.45f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
+            var pulse by remember { mutableFloatStateOf(1f) }
+            LaunchedEffect(Unit) { var up = false; while (true) { kotlinx.coroutines.delay(450); pulse = if (up) 1f else .45f; up = !up } }
             Canvas(Modifier.size(10.dp)) {
                 val dot = when (state.phase) { VoicePhase.ERROR -> Color(0xFFFF5C7A); VoicePhase.SPEAKING -> Color(0xFF30F997); VoicePhase.THINKING, VoicePhase.CONNECTING, VoicePhase.RECONNECTING -> Violet; else -> Lime }
                 drawCircle(dot.copy(alpha = .3f * pulse), radius = size.minDimension); drawCircle(dot, radius = size.minDimension / 2 * (.7f + .3f * pulse))
