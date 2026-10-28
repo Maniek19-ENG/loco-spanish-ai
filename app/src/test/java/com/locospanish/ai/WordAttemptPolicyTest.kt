@@ -105,4 +105,16 @@ class WordAttemptPolicyTest {
         val grade=WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka"))
         assertEquals("ERROR",grade.verdict)
     }
+    @Test fun geminiHearingTheRightWordWinsOverAGarbledTranscript() {
+        val night=LessonWord("una noche","jedna noc")
+        for(garbled in listOf("no cze","nocze","una no che")) {
+            val grade=WordAttemptPolicy.evaluate(night,garbled,Assessment("UNCERTAIN",garbled),false,"una noche")
+            assertEquals(garbled,"CORRECT",grade.verdict)
+            assertTrue(garbled,WordAttemptPolicy.canAdvance(night,garbled,grade,"una noche"))
+        }
+        // Without Gemini's certain hearing, or when the transcript is clearly another lesson word, nothing is credited.
+        assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(night,"no cze",Assessment("UNCERTAIN","no cze")).verdict)
+        assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(night,"la cerveza",Assessment("UNCERTAIN","la cerveza"),false,"una noche").verdict)
+        assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(night,"nie wiem",Assessment("UNCERTAIN","nie wiem"),false,"una noche").verdict)
+    }
 }

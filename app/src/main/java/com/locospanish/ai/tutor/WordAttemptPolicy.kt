@@ -66,7 +66,18 @@ object WordAttemptPolicy {
         if(heard.length<3) return false
         return alternativesOf(word).any { val target=soundKey(it); target.length>=3 && distance(heard,target)<=if(target.length>=6) 2 else 1 }
     }
-    fun evaluate(word:LessonWord?,text:String,checked:Assessment, reliableTranscript:Boolean = false):Assessment {
+    private val catalogKeys by lazy { (TopicLessons.plans.keys.flatMap { TopicLessons.vocabulary(it) }).map { AssessmentPolicy.key(it.es) }.toSet() }
+    /** Gemini hears the audio; its CERTAIN CORRECT with the target in heard_text wins over a garbled transcript. */
+    private fun modelHeardTarget(word:LessonWord,text:String,modelHeard:String):Boolean {
+        if(modelHeard.isBlank() || !(matches(word,modelHeard) || soundsLike(word,modelHeard))) return false
+        val transcript=AssessmentPolicy.speech(trialText(text))
+        // A Spanish negation of the target itself ("no es la noche") is not an answer.
+        if(Regex("^(?:no|nie)\\b").containsMatchIn(transcript) && (matches(word,text) || Regex("\\b(?:es|son|esta)\\b").containsMatchIn(transcript))) return false
+        // A clearly different lesson word in the transcript is not overridden.
+        val other=AssessmentPolicy.key(AssessmentPolicy.display(trialText(text)))
+        return !(other in catalogKeys && other!=AssessmentPolicy.key(word.es) && !nearMiss(word,text))
+    }
+    fun evaluate(word:LessonWord?,text:String,checked:Assessment, reliableTranscript:Boolean = false, modelHeard:String = ""):Assessment {
         if(word == null || newTopic(text)) return checked
         if(text.isBlank() || needsHelp(text)) return Assessment("UNCERTAIN",text,explanation="Brak odpowiedzi na ćwiczone słowo. Pomóż i zostań przy tym samym zadaniu; nie zaliczaj komentarza.")
         val trial=trialText(text)
@@ -83,6 +94,8 @@ object WordAttemptPolicy {
             return Assessment("ERROR",text,word.es,"Rodzajnik nie pasuje do tego rzeczownika.")
         if(genderCorrect && singleTrial && (matches(word,text) || soundsLike(word,text)))
             return Assessment("CORRECT",text,explanation="Rozpoznano poprawną odpowiedź na ćwiczone słowo. Nie oceniaj wymowy na podstawie samej pisowni.")
+        if(modelHeardTarget(word,text,modelHeard))
+            return Assessment("CORRECT",text,explanation="Gemini usłyszało poprawne słowo ${word.es}; automatyczny zapis tekstu je przekręcił. Zalicz bez sugerowania błędu.")
         if(singleTrial && nearMiss(word,text) && checked.verdict!="ERROR")
             return Assessment("UNCERTAIN",text,explanation="Transkrypcja jest bliska słowa ${word.es}, ale niepewna. Nie śmiej się i nie zarzucaj błędu; poproś krótko o jeszcze jedną wyraźną próbę.")
         if(checked.verdict == "CORRECT" && !matches(word,text)) {
@@ -91,7 +104,7 @@ object WordAttemptPolicy {
         }
         return checked
     }
-    fun canAdvance(word:LessonWord?,text:String,checked:Assessment)=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text))
+    fun canAdvance(word:LessonWord?,text:String,checked:Assessment,modelHeard:String = "")=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text) || modelHeardTarget(word,text,modelHeard))
     fun hold(word:LessonWord?)="NIE PRZECHODŹ DO KOLEJNEGO SŁOWA. Nie zaliczono nowej poprawnej odpowiedzi. " +
         (word?.let { "Aktualne zadanie: ${it.es} — ${it.pl}. " } ?: "") +
         "Przy błędzie popraw tę próbę; przy pytaniu lub nie wiem pomóż krótko. Przy braku wypowiedzi czekaj na ucznia. Bez nowego słowa, bez fałszywej pochwały i bez kończenia lekcji."
