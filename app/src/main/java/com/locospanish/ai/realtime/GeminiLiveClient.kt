@@ -156,7 +156,7 @@ class GeminiLiveClient(
         if(key.isBlank()) { fail("Wpisz klucz Gemini w Ustawieniach.");return }
         if(reset) generatedWords.clear()
         if(activeLessonWord==null && !review.active) {
-            val first=LessonTurnPolicy.next(scenario,null,knownVocabulary,taughtVocabulary,wordsOnly=settings.level==Level.A1,preferScenario=true)
+            val first=LessonTurnPolicy.next(scenario,null,knownVocabulary,taughtVocabulary,wordsOnly=settings.level==Level.A1,preferScenario=true,level=taskSettings.level)
             if(first!=null) setWord(first) else requestTask(generation)
         }
         lessonCompleted.clear(); lessonCompleted.addAll(TopicLessons.completed(memory,scenario))
@@ -472,6 +472,9 @@ class GeminiLiveClient(
                     requestedTopicChange=!review.active && !learnerQuestion && user != null && (intent==DialogueIntent.Kind.TOPIC || com.locospanish.ai.tutor.WordAttemptPolicy.newTopic(user.text))
                     advanceWord=!learnerQuestion && previousAnswer == null && user != null && com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard)
                     if(advanceWord) { acceptedWordUserId=user?.id;lastAcceptedWord=attemptedWord }
+                    // An accepted single word is shown exactly as on the card, whatever the automatic transcript spelled.
+                    if(advanceWord && user!=null && attemptedWord!=null && LessonTurnPolicy.singleWord(attemptedWord.es) && !com.locospanish.ai.tutor.WordAttemptPolicy.directAnswer(attemptedWord,user.text))
+                        mutable.update { value -> value.copy(transcript=value.transcript.map { if(it.id==user.id) it.copy(text=attemptedWord.es) else it }) }
                     assessment = checked
                     // The visible transcript shows what Gemini certainly heard, not the garbled automatic transcript.
                     val certainHeard=args.str("heard_text").trim().take(300)
@@ -523,7 +526,7 @@ class GeminiLiveClient(
                         "teach_word" -> {
                             val proposed=TeachingForm.complete(LessonWord(args.str("term"),args.str("translation")),args.str("article"))
                             TeachingForm.refine(activeLessonWord,proposed)?.takeIf { it!=activeLessonWord }?.let { setWord(it) }
-                            val word=if(helpTurn) activeLessonWord else if(review.active) review.current else if(skipWordRequested) com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary+listOfNotNull(activeLessonWord?.es),requestedLearningTopic.isBlank(),settings.level == Level.A1,preferScenario=settings.level == Level.A1 && requestedLearningTopic.isBlank()) else if(settings.level==Level.A1 && activeLessonWord != null && !(user != null && com.locospanish.ai.tutor.WordAttemptPolicy.newTopic(user.text))) activeLessonWord else if(forceWordReplay && controlTurn) proposed else if(spokenWordTurn == ((user?.id ?: "start") to proposed.es)) proposed else if(AssessmentPolicy.isLearningQuestion(user?.text.orEmpty())) proposed else com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary,requestedLearningTopic.isBlank(),settings.level == Level.A1,preferScenario=requestedLearningTopic.isBlank())
+                            val word=if(helpTurn) activeLessonWord else if(review.active) review.current else if(skipWordRequested) com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary+listOfNotNull(activeLessonWord?.es),requestedLearningTopic.isBlank(),settings.level == Level.A1,preferScenario=settings.level == Level.A1 && requestedLearningTopic.isBlank(),level=taskSettings.level) else if(settings.level==Level.A1 && activeLessonWord != null && !(user != null && com.locospanish.ai.tutor.WordAttemptPolicy.newTopic(user.text))) activeLessonWord else if(forceWordReplay && controlTurn) proposed else if(spokenWordTurn == ((user?.id ?: "start") to proposed.es)) proposed else if(AssessmentPolicy.isLearningQuestion(user?.text.orEmpty())) proposed else com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary,requestedLearningTopic.isBlank(),settings.level == Level.A1,preferScenario=requestedLearningTopic.isBlank(),level=taskSettings.level)
                             teachingWord=word; skipWordRequested=false; if(word != null) setWord(word)
                             if(!helpTurn && !review.active && word != null && word.es.isNotBlank()) saved=queueWord(word.es,user?.id ?: "start",generation,id)
                         }
@@ -550,9 +553,9 @@ class GeminiLiveClient(
                     // A requested new domain must never fall back to the old scenario's nouns.
                     val holdWord=if(review.active) !advanceWord else learnerQuestion || (settings.level == com.locospanish.ai.model.Level.A1 && activeLessonWord != null && !advanceWord && !requestedTopicChange && !skipWordRequested)
                     val selectedNext = if(review.active && advanceWord) review.advance(true) else if(holdWord) activeLessonWord else if(requestedLearningTopic.isNotBlank() && proposed.es.isBlank() && assessment?.verdict != "ERROR") null else
-                        com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary+if(skipWordRequested) listOfNotNull(activeLessonWord?.es) else emptyList(),requestedLearningTopic.isBlank(),settings.level == com.locospanish.ai.model.Level.A1,if(assessment?.verdict == "ERROR") assessment?.correction.orEmpty() else "",preferScenario=requestedLearningTopic.isBlank())
+                        com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary+if(skipWordRequested) listOfNotNull(activeLessonWord?.es) else emptyList(),requestedLearningTopic.isBlank(),settings.level == com.locospanish.ai.model.Level.A1,if(assessment?.verdict == "ERROR") assessment?.correction.orEmpty() else "",preferScenario=requestedLearningTopic.isBlank(),level=taskSettings.level)
                     val next=selectedNext ?: if(!review.active && !holdWord) bufferedWord() ?:
-                        if(requestedLearningTopic.isBlank()) LessonReserve.next(scenario,knownVocabulary+taughtVocabulary) else null else null
+                        if(requestedLearningTopic.isBlank()) (if(taskSettings.level==Level.A1) LessonReserve.next(scenario,knownVocabulary+taughtVocabulary) else LevelPhrases.next(scenario,taskSettings.level,knownVocabulary+taughtVocabulary)) else null else null
                     if(next != null) setWord(next) else if(!holdWord && !review.active) { activeLessonWord=null;requestTask(generation) }
                     if(selectedNext==null && next!=null && generatedWords[taskTopic()].orEmpty().size<3) fetchMaterial(generation)
                     response.addProperty("current_word",next?.es.orEmpty());response.addProperty("current_translation",next?.pl.orEmpty())
@@ -765,7 +768,7 @@ class GeminiLiveClient(
                     spokenWordTurn=turn to word;lastPresentedWord=activeLessonWord; activeLessonWord?.let { target -> mutable.update { it.copy(currentWord=target.es,currentMeaning=target.pl) } };taughtVocabulary.add(word)
                     mutable.update { it.copy(transcript=RealtimeEvents.transcript(it.transcript,"word:$turn:$word","assistant",word,false)) }
                     if(wordsOnlyLesson && !review.active && requestedLearningTopic.isBlank()) {
-                        val next=LessonTurnPolicy.next(lessonScenario,null,knownVocabulary,taughtVocabulary,wordsOnly=true,preferScenario=true)
+                        val next=LessonTurnPolicy.next(lessonScenario,null,knownVocabulary,taughtVocabulary,wordsOnly=true,preferScenario=true,level=taskSettings.level)
                         if(next!=null && next.es!=word) {
                             prefetchJob?.cancel();prefetchWord=next.es
                             prefetchJob=scope.launch(Dispatchers.IO) {
@@ -820,7 +823,7 @@ class GeminiLiveClient(
     }
     private fun requestTask(generation:Int=epoch) {
         bufferedWord()?.let { deliverTask(it,generation);return }
-        val reserve=if(requestedLearningTopic.isBlank()) LessonReserve.next(lessonScenario,knownVocabulary+taughtVocabulary) else null
+        val reserve=if(requestedLearningTopic.isBlank()) (if(taskSettings.level==Level.A1) LessonReserve.next(lessonScenario,knownVocabulary+taughtVocabulary) else LevelPhrases.next(lessonScenario,taskSettings.level,knownVocabulary+taughtVocabulary)) else null
         if(reserve!=null) deliverTask(reserve,generation)
         else mutable.update { it.copy(taskPending=true,taskError="",phase=if(it.connected) VoicePhase.THINKING else it.phase,message="Przygotowuję nowe słowo z tematu: ${taskTopic()}") }
         fetchMaterial(generation)
@@ -906,12 +909,12 @@ class GeminiLiveClient(
             LessonAction.RESUME -> {
                 if(!review.active) return
                 review.stop();syncReview()
-                setWord(savedLessonWord?.takeUnless { AssessmentPolicy.key(it.es) in knownVocabulary } ?: LessonTurnPolicy.next(lessonScenario,null,knownVocabulary,taughtVocabulary,wordsOnly=true,preferScenario=requestedLearningTopic.isBlank()))
+                setWord(savedLessonWord?.takeUnless { AssessmentPolicy.key(it.es) in knownVocabulary } ?: LessonTurnPolicy.next(lessonScenario,null,knownVocabulary,taughtVocabulary,wordsOnly=taskSettings.level==Level.A1,preferScenario=requestedLearningTopic.isBlank(),level=taskSettings.level))
                 savedLessonWord=null
             }
             LessonAction.NEXT -> {
                 if(review.active) { if(review.finished) return;setWord(review.advance(false));syncReview() }
-                else { activeLessonWord?.let { taughtVocabulary.add(it.es) };setWord(LessonTurnPolicy.next(lessonScenario,null,knownVocabulary,taughtVocabulary,wordsOnly=true,preferScenario=requestedLearningTopic.isBlank())) }
+                else { activeLessonWord?.let { taughtVocabulary.add(it.es) };setWord(LessonTurnPolicy.next(lessonScenario,null,knownVocabulary,taughtVocabulary,wordsOnly=taskSettings.level==Level.A1,preferScenario=requestedLearningTopic.isBlank(),level=taskSettings.level)) }
             }
             LessonAction.SLOWER -> { sessionSpeed=maxOf(.6f,minOf(sessionSpeed,1f)-.25f);audio?.setSpeed(sessionSpeed) }
             else -> Unit

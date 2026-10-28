@@ -630,17 +630,21 @@ class GeminiIntegrationTest {
         for(level in Level.entries) runClient(settings=Settings(level=level),scenario="hotel") { client,socket,audio ->
             socket.event("{\"setupComplete\":{}}")
             delay(70)
+            // Each level starts from its own material: a word on A1, a phrase on A2, a whole sentence from B1.
+            val card=client.state.value.currentWord;val meaning=client.state.value.currentMeaning
+            assertEquals(level==Level.A1,com.locospanish.ai.tutor.LessonTurnPolicy.singleWord(card))
+            if(level>=Level.B1) assertTrue(card,card.split(' ').size>=4)
             fun answer(text:String)=socket.event(GeminiProtocol.json("serverContent" to GeminiProtocol.json("outputTranscription" to GeminiProtocol.json("text" to text),"modelTurn" to GeminiProtocol.json("parts" to listOf(GeminiProtocol.json("inlineData" to GeminiProtocol.json("mimeType" to "audio/pcm;rate=24000","data" to "AAAAAA==")))),"turnComplete" to true)).toString())
             answer("Jak powiesz po hiszpańsku pokój?")
             delay(80)
             assertEquals(0,audio.packets)
-            assertEquals("la reserva",client.state.value.currentWord)
-            assertTrue(socket.sent.last().contains("rezerwacja"))
+            assertEquals(card,client.state.value.currentWord)
+            assertTrue(socket.sent.last().contains(meaning))
             assertFalse(client.state.value.transcript.any { it.text.contains("hiszpańsku pokój") })
-            answer("Kurwa, recepcja już liczy krzesła. Jak powiesz po hiszpańsku rezerwacja?")
+            answer("Kurwa, recepcja już liczy krzesła. Jak powiesz po hiszpańsku $meaning?")
             delay(80)
             assertEquals(1,audio.packets)
-            assertEquals("la reserva",client.state.value.currentWord)
+            assertEquals(card,client.state.value.currentWord)
         }
     }
     @Test fun repeatedToolIdReturnsCurrentTaskInsteadOfOldCachedWord()=runBlocking {

@@ -3,7 +3,7 @@ package com.locospanish.ai.tutor
 /** Keeps a teaching suggestion separate from earned vocabulary progress. */
 object LessonTurnPolicy {
     fun singleWord(text: String) = Regex("^(?:(?:el|la|los|las|un|una|unos|unas) )?[\\p{L}]+$",RegexOption.IGNORE_CASE).matches(text.trim())
-    fun next(scenario: String, proposed: LessonWord?, known: Collection<String>, taught: Collection<String>, allowScenarioFallback: Boolean = true, wordsOnly: Boolean = false, verifiedCorrection: String = "", preferScenario: Boolean = false): LessonWord? {
+    fun next(scenario: String, proposed: LessonWord?, known: Collection<String>, taught: Collection<String>, allowScenarioFallback: Boolean = true, wordsOnly: Boolean = false, verifiedCorrection: String = "", preferScenario: Boolean = false, level: com.locospanish.ai.model.Level = com.locospanish.ai.model.Level.A1): LessonWord? {
         val corrected=verifiedCorrection.trim().trimEnd('.', '!', '?')
         if(wordsOnly && corrected.isNotBlank() && singleWord(corrected)) {
             val meaning=proposed?.takeIf { AssessmentPolicy.key(it.es) == AssessmentPolicy.key(corrected) }?.pl
@@ -21,6 +21,8 @@ object LessonTurnPolicy {
                 AssessmentPolicy.key(it.es)==AssessmentPolicy.key(proposed.es) && available(it)
             } ?: proposed else proposed
         }
+        // Above A1 the fallback is level material (phrases on A2, whole sentences from B1), never the A1 noun list.
+        if(level != com.locospanish.ai.model.Level.A1) return if(allowScenarioFallback) LevelPhrases.words(scenario,level).firstOrNull(::available) else null
         if(preferScenario && allowScenarioFallback) TopicLessons.vocabulary(scenario).firstOrNull(::available)?.let { return it }
         return if(allowScenarioFallback) TopicLessons.get(scenario).words.firstOrNull(::available) else null
     }

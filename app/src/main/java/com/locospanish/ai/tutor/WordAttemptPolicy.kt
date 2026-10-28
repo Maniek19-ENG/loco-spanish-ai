@@ -30,9 +30,18 @@ object WordAttemptPolicy {
         return answer.isNotBlank() && answer in variants
     }
     fun matches(word:LessonWord,text:String):Boolean {
+        sentenceMatch(word,text)?.let { return it }
         val core=AssessmentPolicy.speech(AssessmentPolicy.display(word.es))
         val alternatives=equivalents.firstOrNull { core in it } ?: setOf(core)
         return alternatives.any { AssessmentPolicy.contains(text,it) }
+    }
+    /** A whole sentence (B1+) counts when most of its content words were said, in any wording close to the model. */
+    private fun sentenceMatch(word:LessonWord,text:String):Boolean? {
+        val stop=setOf("el","la","los","las","un","una","unos","unas","de","a","en","y","que","por","con","me","te","se","lo","le","mi","tu","su","es","al","del")
+        val target=AssessmentPolicy.speech(word.es).split(' ').filter { it.isNotBlank() && it !in stop }
+        if(target.size<3) return null
+        val said=AssessmentPolicy.speech(text).split(' ').map(::soundKey).toSet()
+        return target.count { soundKey(it) in said } >= Math.ceil(target.size*0.7).toInt()
     }
     /** Spelling-independent Spanish sound key: silent h, b/v, ll/y, soft c/z/s and Polish-style w are one sound. */
     fun soundKey(text:String):String {

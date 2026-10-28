@@ -36,4 +36,22 @@ class LessonTurnPolicyTest {
     @Test fun knownAccentAndArticleVariantsAreExcluded() {
         assertNotEquals("la habitación",LessonTurnPolicy.next("hotel",LessonWord("la habitación","pokój"),listOf("habitación"),emptyList())?.es)
     }
+    @org.junit.Test fun everyLevelGetsItsOwnStartingMaterialInEveryScenario() {
+        for(scenario in com.locospanish.ai.model.Scenarios.all.map { it.id }) {
+            val a1=com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,null,emptyList(),emptyList(),wordsOnly=true,preferScenario=true)!!
+            org.junit.Assert.assertTrue("$scenario A1 ${a1.es}",com.locospanish.ai.tutor.LessonTurnPolicy.singleWord(a1.es))
+            val a2=com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,null,emptyList(),emptyList(),preferScenario=true,level=com.locospanish.ai.model.Level.A2)!!
+            org.junit.Assert.assertFalse("$scenario A2 ${a2.es}",com.locospanish.ai.tutor.LessonTurnPolicy.singleWord(a2.es))
+            for(level in listOf(com.locospanish.ai.model.Level.B1,com.locospanish.ai.model.Level.B2,com.locospanish.ai.model.Level.C1,com.locospanish.ai.model.Level.C2)) {
+                val b=com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,null,emptyList(),emptyList(),preferScenario=true,level=level)!!
+                org.junit.Assert.assertTrue("$scenario $level ${b.es}",b.es.split(' ').size>=4)
+            }
+        }
+    }
+    @org.junit.Test fun aSentenceSaidInCloseWordsCountsButAnotherSentenceDoesNot() {
+        val target=com.locospanish.ai.tutor.LessonWord("Reservé una habitación para tres noches","Zarezerwowałem pokój na trzy noce")
+        org.junit.Assert.assertTrue(com.locospanish.ai.tutor.WordAttemptPolicy.matches(target,"Reservé una habitación para tres noches"))
+        org.junit.Assert.assertTrue(com.locospanish.ai.tutor.WordAttemptPolicy.matches(target,"Pues reservé habitación para tres noches"))
+        org.junit.Assert.assertFalse(com.locospanish.ai.tutor.WordAttemptPolicy.matches(target,"Quiero una cerveza muy fría"))
+    }
 }
