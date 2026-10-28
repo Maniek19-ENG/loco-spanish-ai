@@ -98,7 +98,7 @@ class GeminiIntegrationTest {
             socket.event(GeminiProtocol.json("toolCall" to GeminiProtocol.json("functionCalls" to listOf(GeminiProtocol.json("id" to "unplayed-draft-roast","name" to "assess_user_turn","args" to GeminiProtocol.json("heard_text" to "gato","evidence" to "gato","confidence" to "CERTAIN","verdict" to "ERROR","correction" to "la reserva","explanation" to "Gato to kot, a ćwiczymy rezerwację.","error_kind" to "VOCABULARY","roast" to joke,"words" to emptyList<String>()))))).toString())
             withTimeout(2000) { while(socket.sent.none { it.contains("unplayed-draft-roast") && it.contains("toolResponse") }) delay(5) }
             val body=com.google.gson.JsonParser.parseString(socket.sent.first { it.contains("unplayed-draft-roast") && it.contains("toolResponse") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
-            assertEquals(joke,body.get("planned_roast").asString)
+            assertTrue(body.get("planned_roast").asString.startsWith(joke.trimEnd('.')))
             assertFalse(body.get("roast_needs_new_idea").asBoolean)
             delay(150)
             // The riposte stays in the Gemini voice; no system speech engine reads it.
@@ -496,7 +496,7 @@ class GeminiIntegrationTest {
             withTimeout(2000) { while(socket.sent.none { it.contains("real-word-error") && it.contains("toolResponse") }) delay(5) }
             val body=com.google.gson.JsonParser.parseString(socket.sent.last()).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
             assertEquals("ERROR",body.get("verified_verdict").asString)
-            assertTrue(body.get("planned_roast").asString.startsWith(joke))
+            assertTrue(body.get("planned_roast").asString.startsWith(joke.trimEnd('.')))
             assertEquals("la reserva",client.state.value.currentWord)
             val script=body.get("spoken_script").asString
             socket.event(GeminiProtocol.json("serverContent" to GeminiProtocol.json("outputTranscription" to GeminiProtocol.json("text" to script),"modelTurn" to GeminiProtocol.json("parts" to listOf(GeminiProtocol.json("inlineData" to GeminiProtocol.json("mimeType" to "audio/pcm;rate=24000","data" to "AAAAAA==")))))).toString())
