@@ -327,6 +327,12 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
         LiveAction("Nie rozumiem",state.connected) { action(com.locospanish.ai.tutor.LessonAction.EXPLAIN) }
         LiveAction("Po polsku",state.connected) { action(com.locospanish.ai.tutor.LessonAction.TRANSLATE) }
         LiveAction("Dlaczego?",state.connected,askWhy)
+        val diagContext=LocalContext.current
+        LiveAction("Kopiuj diagnostykę",true) {
+            val clipboard=diagContext.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("LOCO diagnostyka",com.locospanish.ai.realtime.Diag.dump()))
+            android.widget.Toast.makeText(diagContext,"Skopiowano diagnostykę — wklej ją w czacie",android.widget.Toast.LENGTH_LONG).show()
+        }
         LiveAction(if(state.reviewMode) "Wróć do nauki" else "Odpytaj mnie",state.connected) { action(if(state.reviewMode) com.locospanish.ai.tutor.LessonAction.RESUME else com.locospanish.ai.tutor.LessonAction.REVIEW) }
         LiveAction(if(state.reviewMode) "Pomiń" else "Dalej",state.connected && !state.reviewCompleted) { action(com.locospanish.ai.tutor.LessonAction.NEXT) }
     }

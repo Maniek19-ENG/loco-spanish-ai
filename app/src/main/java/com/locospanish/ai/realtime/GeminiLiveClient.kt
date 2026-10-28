@@ -214,6 +214,7 @@ class GeminiLiveClient(
         timeout = scope.launch { delay(25000); if(epoch == generation && !state.value.connected) fail("Upłynął czas łączenia. Sprawdź internet, klucz i dostępność Gemini.") }
     }
     private suspend fun event(e: JsonObject, generation: Int, reset: Boolean, settings: Settings, scenario: String, memory: String) {
+        Diag.summary(e).let { line -> Diag.log(if(line=="IN audio") line else "$line | phase=${state.value.phase} word=${activeLessonWord?.es}") }
         if(e.has("error")) { val error = e.getAsJsonObject("error"); fail(GeminiProtocol.problem(error.get("code")?.asInt ?: 0,error.str("message"))); return }
         if(e.has("setupComplete")) {
             timeout?.cancel(); mutable.update { it.copy(connected = true,phase = VoicePhase.THINKING,message = "Przygotowuję pierwsze słowo…") }
@@ -323,6 +324,7 @@ class GeminiLiveClient(
                 val helpWithoutGrade=actualUser!=null && (referenceHelp || LearnerIntent.questionInsteadOfTrial(actualUser.text,target) || WordAttemptPolicy.newTopic(actualUser.text))
                 val gradeSkippedTwice=unassessedTrial && actualUser!=null && assessmentNudgedFor==actualUser.id
                 val playUngraded=gradeSkippedTwice && (provisionalAudio.isNotEmpty() || streamedBytes>0) && !SpokenTeachingPolicy.assertsError(answerText)
+                if(gradeSkippedTwice) Diag.log("GRADE MISSING TWICE play=$playUngraded")
                 if(gradeSkippedTwice && !playUngraded && target!=null) {
                     // Gemini skipped the grade again: never leave the learner in silence. Repeat the task and listen.
                     val draft=provisionalAssistantId
@@ -367,6 +369,7 @@ class GeminiLiveClient(
                     }
                 }
                 if((wrongTask || falseRejection || missingHelp || emptyJoke || roastIssue.isNotBlank()) && target!=null) {
+                    Diag.log("REPAIR wrongTask=$wrongTask falseRejection=$falseRejection missingHelp=$missingHelp emptyJoke=$emptyJoke roast='${roastIssue.take(60)}' retry=$alignmentRetries")
                     if(streamedBytes>0) audio?.interrupt()
                     val draft=state.value.transcript.lastOrNull { it.role=="assistant" && !it.id.startsWith("word:") }?.id
                     mutable.update { value -> value.copy(transcript=value.transcript.filterNot { it.id==draft }) }
@@ -485,6 +488,7 @@ class GeminiLiveClient(
                     requestedTopicChange=!review.active && !learnerQuestion && user != null && (intent==DialogueIntent.Kind.TOPIC || com.locospanish.ai.tutor.WordAttemptPolicy.newTopic(user.text))
                     advanceWord=!learnerQuestion && previousAnswer == null && user != null && com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard)
                     if(advanceWord) { acceptedWordUserId=user?.id;lastAcceptedWord=attemptedWord }
+                    Diag.log("GRADE user='${user?.text}' card=${attemptedWord?.es} gemini=${args.str("verdict")} -> ${checked.verdict} advance=$advanceWord question=$learnerQuestion")
                     // A garbled transcript of an accepted single word shows the card word; a sentence that contains it stays as said.
                     if(advanceWord && user!=null && attemptedWord!=null && LessonTurnPolicy.singleWord(attemptedWord.es) && !com.locospanish.ai.tutor.WordAttemptPolicy.matches(attemptedWord,user.text) && !com.locospanish.ai.tutor.WordAttemptPolicy.soundsLike(attemptedWord,user.text))
                         mutable.update { value -> value.copy(transcript=value.transcript.map { if(it.id==user.id) it.copy(text=attemptedWord.es) else it }) }
@@ -798,7 +802,9 @@ class GeminiLiveClient(
         }
         return true
     }
-    private fun send(value: JsonObject) { if(socket?.send(value.toString()) != true) fail("Nie udało się wysłać wiadomości. Spróbuj ponownie.") }
+    private fun send(value: JsonObject) {
+        if(!value.has("realtimeInput")) Diag.log("OUT "+if(value.has("setup")) "setup" else value.toString().take(220))
+ if(socket?.send(value.toString()) != true) fail("Nie udało się wysłać wiadomości. Spróbuj ponownie.") }
     private fun addOptionalRoast(settings: Settings, generation: Int) {
         if(answerText.isBlank()) return
         if(readingSupplement) { readingSupplement = false; return }
@@ -970,7 +976,8 @@ class GeminiLiveClient(
         val muted = !state.value.muted; audio?.mute(muted); mutable.update { it.copy(muted = muted) }
         if(muted && state.value.connected) send(GeminiProtocol.json("realtimeInput" to GeminiProtocol.json("audioStreamEnd" to true)))
     }
-    private fun fail(message: String) { close(); mutable.update { it.copy(phase = VoicePhase.ERROR,connected = false,taskPending=false,message = message) } }
+    private fun fail(message: String) { Diag.log("FAIL $message")
+ close(); mutable.update { it.copy(phase = VoicePhase.ERROR,connected = false,taskPending=false,message = message) } }
     private fun close() { nativeReply?.cancel();nativeReply=null;nativeReplyOwner=null;nativeReplyScript="";riposteLaughter.reset();liveTaskRequest="";materialRetryAt=0L;assessmentWatchdog?.cancel();assessmentWatchdog=null;assessmentNudgedFor=null;referenceRevision=-1L;helpAttempts=0;lastHelpOwner=null;dialogueReplyOnly=false;roastRequested=false;roastWord=null;roastHeard="";openingPromptPending=true;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false; helpReferenceJob?.cancel();helpReferenceJob=null;helpReferenceTurn=null;failedHelpReferenceTurn=null;taskJob?.cancel();taskJob=null;taskKey="";prefetchJob?.cancel();prefetchJob=null;prefetchWord=null;incomingJob?.cancel();incomingJob=null;incoming?.close();incoming=null;mutableAudioLevel.value=0f; epoch++; wordJob?.cancel();wordJob=null;queuedWordTurn=null;referenceGate.cancel();referenceGate=CompletableDeferred();referenceOwner=null; deliveringTool=false; forceWordReplay=false; wordSpeaker?.close(); wordSpeaker=null; spokenWordTurn=null; activeLessonWord=null; skipWordRequested=false; lastPresentedWord=null; acceptedWordUserId=null;lastAcceptedWord=null; acceptedWordResponses.clear(); provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; supplementJob?.cancel(); supplementJob = null; roastSpeech?.let { runCatching { it.close() } }; roastSpeech = null; readingSupplement = false; answerText = ""; plannedRoast = ""; verdict = "CORRECT"; timeout?.cancel(); timeout = null; responseTimeout?.cancel(); responseTimeout = null; socket?.cancel(); socket = null; runCatching { audio?.close() }; audio = null;presentedAudio=null }
     fun stop() { close(); mutable.update { it.copy(phase = VoicePhase.IDLE,connected = false,muted = false,message = "Rozmowa zakończona.") } }
 }
