@@ -518,8 +518,8 @@ class GeminiIntegrationTest {
             socket.event(GeminiProtocol.json("toolCall" to GeminiProtocol.json("functionCalls" to listOf(GeminiProtocol.json("id" to "early-audio","name" to "assess_user_turn","args" to GeminiProtocol.json("verdict" to "CORRECT","heard_text" to "reserva","confidence" to "CERTAIN","roast" to joke,"words" to emptyList<String>()))))).toString())
             withTimeout(2000) { while(socket.sent.none { it.contains("early-audio") && it.contains("toolResponse") }) delay(5) }
             val body=com.google.gson.JsonParser.parseString(socket.sent.last()).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
-            // A correct answer gets no riposte at all.
-            assertEquals("",body.get("planned_roast").asString);assertFalse(body.has("spoken_script"))
+            // A correct answer also gets a riposte, but it is spoken without waiting for validation.
+            assertTrue(body.get("planned_roast").asString.isNotBlank())
             fun emitAudio(text:String,done:Boolean)=socket.event(GeminiProtocol.json("serverContent" to GeminiProtocol.json("outputTranscription" to GeminiProtocol.json("text" to text),"modelTurn" to GeminiProtocol.json("parts" to listOf(GeminiProtocol.json("inlineData" to GeminiProtocol.json("mimeType" to "audio/pcm;rate=24000","data" to "AAAAAA==")))),"turnComplete" to done)).toString())
             emitAudio("Dobrze.",false)
             delay(60)
@@ -732,6 +732,23 @@ class GeminiIntegrationTest {
     private suspend fun assessment(socket:FakeSocket,id:String,text:String,verdict:String="CORRECT",words:List<com.google.gson.JsonObject> = emptyList()) {
         socket.event(GeminiProtocol.json("toolCall" to GeminiProtocol.json("functionCalls" to listOf(GeminiProtocol.json("id" to id,"name" to "assess_user_turn","args" to GeminiProtocol.json("verdict" to verdict,"heard_text" to text,"evidence" to text,"confidence" to "CERTAIN","correction" to "","explanation" to "","error_kind" to "GRAMMAR","words" to words))))).toString())
         withTimeout(2000) { while(socket.sent.none { it.contains("toolResponse") && it.contains(id) }) delay(5) }
+    }
+    @Test fun correctWordHeardByGeminiAdvancesDespiteAGarbledTranscript()=runBlocking {
+        runClient(scenario="hotel") { client,socket,_ ->
+            socket.event("{\"setupComplete\":{}}");delay(80)
+            val target=client.state.value.currentWord
+            val garbled="erre se va"
+            socket.event("{\"serverContent\":{\"turnComplete\":true}}")
+            recognized(socket,garbled)
+            // Gemini heard the right word; only the automatic transcript is broken.
+            socket.event(GeminiProtocol.json("toolCall" to GeminiProtocol.json("functionCalls" to listOf(GeminiProtocol.json("id" to "garbled","name" to "assess_user_turn","args" to GeminiProtocol.json("verdict" to "CORRECT","heard_text" to target,"evidence" to target,"confidence" to "CERTAIN","correction" to "","explanation" to "","error_kind" to "NONE","words" to emptyList<String>()))))).toString())
+            withTimeout(2000) { while(socket.sent.none { it.contains("toolResponse") && it.contains("garbled") }) delay(5) }
+            val body=com.google.gson.JsonParser.parseString(socket.sent.last { it.contains("garbled") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
+            assertEquals("CORRECT",body.get("verified_verdict").asString)
+            assertTrue(body.get("word_trial_accepted").asBoolean)
+            withTimeout(1000) { while(client.state.value.currentWord==target) delay(5) }
+            assertTrue(client.state.value.learning.any { com.locospanish.ai.tutor.AssessmentPolicy.key(it.term)==com.locospanish.ai.tutor.AssessmentPolicy.key(target) })
+        }
     }
     @Test fun plannerOutageContinuesEveryScenarioAndDoesNotAdvanceOnSilence()=runBlocking {
         for(scenario in com.locospanish.ai.tutor.TopicLessons.plans.keys) {

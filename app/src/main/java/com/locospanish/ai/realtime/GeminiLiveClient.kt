@@ -572,7 +572,7 @@ class GeminiLiveClient(
                         else SpokenRoastPolicy.contextualPrimary(settings,plannedRoast,assessment?.verdict ?: "UNCERTAIN",previousRoasts,user?.text.orEmpty(),attemptedWord)
                     val rejectedRoast=plannedRoast.isNotBlank() && freshRoast.isBlank()
                     if(rejectedRoast) { recentRoasts.addLast(plannedRoast.take(320));while(recentRoasts.size>12) recentRoasts.removeFirst() }
-                    plannedRoast=if(assessment?.verdict=="ERROR") freshRoast else ""
+                    plannedRoast=if(assessment?.verdict in setOf("ERROR","CORRECT")) freshRoast else ""
                     response.addProperty("planned_roast",plannedRoast)
                     response.add("recent_roasts_to_avoid",com.google.gson.Gson().toJsonTree(previousRoasts.takeLast(8).map { it.take(220) }))
                     response.addProperty("roast_needs_new_idea",rejectedRoast)
@@ -631,7 +631,7 @@ class GeminiLiveClient(
                 if(name in setOf("assess_user_turn","teach_word")) {
                     val spokenVerdict=assessment?.verdict ?: if(user!=null && assessedUserId==user.id) this.verdict else "UNCERTAIN"
                     if(!response.has("roast_context")) response.add("roast_context",GeminiProtocol.json("learner" to user?.text.orEmpty().take(240),"word" to activeLessonWord?.es.orEmpty(),"meaning" to activeLessonWord?.pl.orEmpty(),"verified_verdict" to spokenVerdict))
-                    if(!response.has("planned_roast")) response.addProperty("planned_roast",if(spokenVerdict=="ERROR") SpokenRoastPolicy.contextualPrimary(settings,plannedRoast,spokenVerdict,recentRoasts,user?.text.orEmpty(),attemptedWord) else "")
+                    if(!response.has("planned_roast")) response.addProperty("planned_roast",if(spokenVerdict in setOf("ERROR","CORRECT")) SpokenRoastPolicy.contextualPrimary(settings,plannedRoast,spokenVerdict,recentRoasts,user?.text.orEmpty(),attemptedWord) else "")
                     if(!response.has("recent_roasts_to_avoid")) response.add("recent_roasts_to_avoid",com.google.gson.Gson().toJsonTree(recentRoasts.toList().takeLast(8).map { it.take(220) }))
                     response.addProperty("delivery_instruction",ReplyDelivery.instruction(settings,response.str("planned_roast"),spokenVerdict,helpTurn,if(review.active) review.instruction() else ""))
                 }
