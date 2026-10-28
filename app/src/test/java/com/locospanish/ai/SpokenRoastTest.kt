@@ -6,9 +6,9 @@ import org.junit.Test
 class SpokenRoastTest {
     private fun request(s: Settings = Settings(), user: String = "Quiero descansar", answer: String = "Dobrze", planned: String = "") =
         SpokenRoastPolicy.supplement(s,user,"CORRECT",answer,planned,"hotel","Poprzednia puenta o recepcji")
-    @Test fun uncertaintyKeepsMaximumRoastWithoutInventingError() {
+    @Test fun uncertaintyGetsHelpWithoutRiposteOrInventedError() {
         val text=com.locospanish.ai.realtime.GeminiProtocol.turnGuidance(Settings(),"UNCERTAIN")
-        assertTrue(text.contains("kurwa"));assertTrue(text.contains("Nie wymyślaj błędu"))
+        assertTrue(text.contains("bez riposty"));assertTrue(text.contains("Nie wymyślaj błędu"))
         assertTrue(text.contains("aktualnym słowie"))
     }
     @Test fun correctTextAnswerNeverGetsInventedPronunciationCriticism() {
