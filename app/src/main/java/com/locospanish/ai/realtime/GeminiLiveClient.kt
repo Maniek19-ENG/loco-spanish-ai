@@ -95,6 +95,9 @@ class GeminiLiveClient(
     private var streamDeviation=false
     private var streamHalted=false
     private var roastGateOpen=false
+    // generationComplete arrived but the same turn's turnComplete has not; a command sent in between must not take it as its own end.
+    private var awaitingTurnComplete=false
+    private var staleTurnComplete=false
     private var replyFinalized=false
     private var openingPromptPending=true
     private var roastRequested=false
@@ -314,7 +317,11 @@ class GeminiLiveClient(
                 }
             }
             if(content.has("inputTranscription") && state.value.phase != VoicePhase.SPEAKING) { mutable.update { it.copy(phase = VoicePhase.THINKING) }; awaitResponse() }
-            if((content.flag("generationComplete") || content.flag("turnComplete")) && !replyFinalized && !content.flag("interrupted")) {
+            if(content.flag("interrupted")) { awaitingTurnComplete=false;staleTurnComplete=false }
+            val staleEnd=content.flag("turnComplete") && !content.flag("generationComplete") && staleTurnComplete
+            if(content.flag("turnComplete")) { staleTurnComplete=false;awaitingTurnComplete=false } else if(content.flag("generationComplete")) awaitingTurnComplete=true
+            if(staleEnd) Diag.log("STALE turnComplete of the previous turn ignored")
+            if(!staleEnd && (content.flag("generationComplete") || content.flag("turnComplete")) && !replyFinalized && !content.flag("interrupted")) {
                 replyFinalized=true
                 val target=activeLessonWord
                 val referenceHelp=currentWordHelpRequested()
@@ -953,7 +960,7 @@ class GeminiLiveClient(
             forceWordReplay=true;queueWord(target.es,"start",epoch)
         }
     }
-    fun command(text: String, interruptAudio: Boolean = true) { if(state.value.connected) { assessmentWatchdog?.cancel();assessmentWatchdog=null;roastRequested=false;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false; skipWordRequested=Regex("kontynuować lekcję|następne słowo|nowe słowo|^dalej$",RegexOption.IGNORE_CASE).containsMatchIn(text); if(interruptAudio) { wordJob?.cancel();queuedWordTurn=null;referenceGate=CompletableDeferred() }; forceWordReplay = interruptAudio && Regex("^(?:powtórz|powtorz|wolniej|wymow|pronuncia|repite)\\b",RegexOption.IGNORE_CASE).containsMatchIn(text); controlTurn = true; awaitResponse(); supplementJob?.cancel(); if(interruptAudio) audio?.interrupt(); send(GeminiProtocol.textTurn(text)); mutable.update { it.copy(phase = VoicePhase.THINKING) } } }
+    fun command(text: String, interruptAudio: Boolean = true) { if(state.value.connected) { staleTurnComplete=awaitingTurnComplete;awaitingTurnComplete=false;assessmentWatchdog?.cancel();assessmentWatchdog=null;roastRequested=false;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false; skipWordRequested=Regex("kontynuować lekcję|następne słowo|nowe słowo|^dalej$",RegexOption.IGNORE_CASE).containsMatchIn(text); if(interruptAudio) { wordJob?.cancel();queuedWordTurn=null;referenceGate=CompletableDeferred() }; forceWordReplay = interruptAudio && Regex("^(?:powtórz|powtorz|wolniej|wymow|pronuncia|repite)\\b",RegexOption.IGNORE_CASE).containsMatchIn(text); controlTurn = true; awaitResponse(); supplementJob?.cancel(); if(interruptAudio) audio?.interrupt(); send(GeminiProtocol.textTurn(text)); mutable.update { it.copy(phase = VoicePhase.THINKING) } } }
     fun wordPresented(word:String,meaning:String) {
         displayedTask=if(word.isBlank() || meaning.isBlank()) null else word to meaning
         if(displayedTask==null) presentedAudio?.hidden() else presentedAudio?.presented(word,meaning)
