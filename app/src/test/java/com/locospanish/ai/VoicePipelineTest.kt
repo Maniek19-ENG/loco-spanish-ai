@@ -38,7 +38,7 @@ class VoicePipelineTest {
   val word=LessonWord("la reserva","rezerwacja")
   assertEquals("",SpokenRoastPolicy.contextualPrimary(Settings(),"Kurwa, twój router właśnie odpalił kabaret.","ERROR",emptyList(),"gato",word))
   val joke="Kurwa, z takim gato zarezerwujesz kotu recepcję zamiast pokoju."
-  assertEquals(joke,SpokenRoastPolicy.contextualPrimary(Settings(),joke,"ERROR",emptyList(),"gato",word))
+  assertTrue(SpokenRoastPolicy.contextualPrimary(Settings(),joke,"ERROR",emptyList(),"gato",word).startsWith(joke.trimEnd('.')))
  }
  @Test fun scriptKeepsQuestionAndCorrectionAndDoesNotLeakQuizAnswers() {
   val word=LessonWord("la llave","klucz")

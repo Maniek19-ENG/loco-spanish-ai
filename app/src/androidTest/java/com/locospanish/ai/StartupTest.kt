@@ -56,7 +56,9 @@ class StartupTest {
      for(i in 0 until node.childCount) dump(node.getChild(i),depth+1)
     }
     try {
-    withTimeout(30000) { while(button==null || button?.isVisibleToUser!=true) { val root=ins.uiAutomation.rootInActiveWindow;button=find(root);if(button==null || button?.isVisibleToUser!=true) { if(!scroll(root)) scroll(root,AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) };delay(250) } }
+    // Keep one direction until it hits the end; alternating forward/backward oscillated near the bottom.
+    var direction=AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+    withTimeout(30000) { while(button==null || button?.isVisibleToUser!=true) { val root=ins.uiAutomation.rootInActiveWindow;button=find(root);if(button==null || button?.isVisibleToUser!=true) { if(!scroll(root,direction)) { direction=if(direction==AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD;scroll(root,direction) } };delay(250) } }
     } catch(e:TimeoutCancellationException) { android.util.Log.e("LocoDiag","window=${ins.uiAutomation.rootInActiveWindow?.packageName} activity=${activity?.isFinishing}");dump(ins.uiAutomation.rootInActiveWindow);throw e }
     var clickable=button
     while(clickable!=null && !clickable!!.isClickable) clickable=clickable!!.parent

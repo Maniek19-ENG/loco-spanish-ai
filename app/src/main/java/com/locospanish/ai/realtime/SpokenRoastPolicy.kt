@@ -10,6 +10,9 @@ object SpokenRoastPolicy {
         "ja pierdolę" to { j -> "Ja pierdolę, "+j.replaceFirstChar { it.lowercase() } },
         "jebany cyrk" to { j -> j.trimEnd('.','!',' ')+". Jebany cyrk." },
         "o chuj" to { j -> "O chuj, "+j.replaceFirstChar { it.lowercase() } })
+    // A riposte without a direct jab at the learner gets one, rotated so consecutive turns differ.
+    private val insultForms=listOf("ty jebany matole","baranie","ty pierdolony pajacu","łamago","gilipollas","ty zjebany cymbale","capullo","gamoniu","ty kurewski ciołku","pedazo de burro")
+    private val insult=Regex("matol|baran|ciul|cioł|ciol|pajac|łamag|lamag|cymbal|debil|idiot|kretyn|oferm|gamo[nń]|głąb|glab|zjeb|frajer|gilipoll|imb[eé]cil|payaso|capull|pendej|burro|cabr[oó]n|tont[oa]\\b",RegexOption.IGNORE_CASE)
     private fun opener(text:String)=text.trim().lowercase().split(Regex("[^\\p{L}]+")).filter { it.isNotBlank() }.take(2).joinToString(" ")
     fun primary(s: Settings, planned: String, verdict: String = "ERROR", recent: Collection<String> = emptyList()): String {
         if(!enabled(s) || planned.isBlank()) return ""
@@ -25,12 +28,17 @@ object SpokenRoastPolicy {
                 result=form.second(result)
             }
         }
+        if(s.personality.profanity == Profanity.STRONG && s.personality.roast >= 80 && !insult.containsMatchIn(result)) {
+            val used=recent.toList().takeLast(3).joinToString(" ").lowercase()
+            val jab=insultForms.firstOrNull { !used.contains(it) } ?: insultForms[Math.floorMod(recent.size,insultForms.size)]
+            result=result.trimEnd('.','!',' ',',')+", $jab!"
+        }
         return result
     }
     private fun meaningful(text:String):List<String> {
         val folded=java.text.Normalizer.normalize(text.lowercase().replace('ł','l'),java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"),"")
         val filler=setOf("ale","jak","sie","nie","tak","ten","twoj","twoja","tylko","juz","wlasnie","znowu","nadal","znow","chyba","dalej","jest","masz","tobie","teraz","kurwa","kurde","cholera","cholernie")
-        return Regex("[a-z]{3,}").findAll(folded).map { it.value }.filter { it !in filler && !Regex("kurw|pierdol|jeb|chuj").containsMatchIn(it) }.toList()
+        return Regex("[a-z]{3,}").findAll(folded).map { it.value }.filter { it !in filler && !Regex("kurw|pierdol|jeb|chuj").containsMatchIn(it) && !insult.containsMatchIn(it) }.toList()
     }
     fun repeated(candidate:String,recent:Collection<String>):Boolean {
         val tokens=meaningful(candidate);if(tokens.isEmpty()) return candidate.isNotBlank()
@@ -87,7 +95,7 @@ object SpokenRoastPolicy {
         val strength=when(s.personality.profanity) { Profanity.STRONG -> "Mocne przekleństwa bez cenzury, zgodnie z ustawieniami."; Profanity.LIGHT -> "Tylko lekkie przekleństwa."; Profanity.OFF -> "Bez przekleństw." }
         return (if(rejected) "Poprzednia propozycja riposty została odrzucona jako powtórka. Nie odczytuj jej ani nie przerabiaj jednego słowa. " else "")+
             "Wymyśl jedną NOWĄ, ostrą i zabawną ripostę z konkretu bieżącej wypowiedzi lub znaczenia aktualnego słowa. Najpierw wybierz konkretny szczegół, potem zbuduj nową sytuacyjną konsekwencję i zaskakującą puentę. " +
-            "Zmień pomysł, metaforę, rytm i początek względem recent_roasts_to_avoid. Nie doklejaj stałego wyzwiska. $strength " +
+            "Zmień pomysł, metaforę, rytm i początek względem recent_roasts_to_avoid. Wbij uczniowi bezpośrednią, obraźliwą obelgę (np. matole, pajacu, cymbale, gilipollas, capullo), inną niż w recent_roasts_to_avoid, z dwuznacznym podtekstem. $strength " +
             "Przy potwierdzonym ERROR i wysokim roaście krótko sparodiuj absurdalny sens KONKRETNEJ wpadki: udawany dialog albo teatralna reakcja postaci, z mocnym przekleństwem gdy STRONG. Oceniana wpadka to attempted_word i learner; next_word jest dopiero następnym zadaniem. Parodia ma mieć nową puentę do tej wypowiedzi, nie stałą kwestię. W audio odegraj kpinę intonacją i teatralnym oburzeniem; okazjonalny krótki półśmiech może uzupełnić puentę. Nie śmiej się obowiązkowo w każdej odpowiedzi i nie zastępuj słów śmiechem. Nie ucz błędnej wymowy; po polskim żarcie natychmiast prawdziwa poprawka i wskazówka. Przy niskim roaście zmniejsz ostrość zgodnie z suwakiem. Przy CORRECT nie wymyślaj błędu językowego, a przy UNCERTAIN żartuj z sytuacji, nie z rzekomej złej wymowy. Wypowiedz ripostę i naukę w tej samej odpowiedzi; bez dodatkowej tury i bez odczytywania instrukcji."
     }
     fun enabled(s: Settings) = !s.previousVersionMode && s.personality.roastMode && s.personality.roast > 0

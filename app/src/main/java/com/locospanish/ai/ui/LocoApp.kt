@@ -195,12 +195,7 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
 @Composable private fun HomeScreen(settings: Settings, library: Library, vm:LocoViewModel, selected: String, select: (String) -> Unit, start: () -> Unit, personality: () -> Unit, open: (String) -> Unit) {
     val progress by vm.progress.collectAsStateWithLifecycle()
     Header("LOCO / SPANISH AI", "Hiszpański bez litości.\nPolski bez cenzury.")
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AssistChip(onClick = { open("Ustawienia") }, label = { Text("${settings.level} • zmień poziom") })
-        AssistChip(onClick = { open("Postępy") }, label = { Text("Postępy →") })
-    }
-    PersonalityCard(settings.forDialog().personality, personality)
-    if(settings.tiktokStyle && !settings.previousVersionMode) InfoCard("STYL Z FILMIKÓW — WŁĄCZONY", "Szyderczy nauczyciel • roast 100 • mocne przekleństwa")
+    // The main action sits right under the header, visible without scrolling.
     GlassCard(radius = 30) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("TWOJA NASTĘPNA RUNDA", fontSize = 11.sp, letterSpacing = 2.sp, color = Muted, modifier = Modifier.weight(1f))
@@ -213,6 +208,12 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
         Text("Ty próbujesz. LOCO szydzi, poprawia i rzuca kolejne wyzwanie. Nie znasz słowa? Zapytaj po polsku.", color = NeonSoft, fontSize = 14.sp)
         GradientButton("ROZPOCZNIJ ROZMOWĘ", onClick = start)
     }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AssistChip(onClick = { open("Ustawienia") }, label = { Text("${settings.level} • zmień poziom") })
+        AssistChip(onClick = { open("Postępy") }, label = { Text("Postępy →") })
+    }
+    PersonalityCard(settings.forDialog().personality, personality)
+    if(settings.tiktokStyle && !settings.previousVersionMode) InfoCard("STYL Z FILMIKÓW — WŁĄCZONY", "Szyderczy nauczyciel • roast 100 • mocne przekleństwa")
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatTile("DZIŚ", duration(progress.todaySeconds), Modifier.weight(1f))
         StatTile("SERIA", "${progress.streak} dni", Modifier.weight(1f))

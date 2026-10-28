@@ -17,7 +17,10 @@ class SpokenRoastTest {
     }
     @Test fun primaryKeepsFreshModelJokeAndRespectsProfanitySettings() {
         val joke="Ten pokój czeka na ciebie dłużej niż recepcjonista na urlop."
-        assertTrue(SpokenRoastPolicy.primary(Settings(),joke).contains(joke.replaceFirstChar { it.lowercase() }))
+        assertTrue(SpokenRoastPolicy.primary(Settings(),joke).contains(joke.trimEnd('.').replaceFirstChar { it.lowercase() }))
+        // Maximum roast always ends with a direct jab at the learner.
+        assertTrue(SpokenRoastPolicy.primary(Settings(),joke).endsWith("matole!"))
+        assertTrue(SpokenRoastPolicy.primary(Settings(),joke,"ERROR",listOf("Kurwa, coś tam, ty jebany matole!")).endsWith("baranie!"))
         assertTrue(SpokenRoastPolicy.primary(Settings(),joke).contains("Kurwa"))
         assertEquals(joke,SpokenRoastPolicy.primary(Settings(personality=Settings().personality.copy(profanity=Profanity.OFF)),joke))
         assertEquals("",SpokenRoastPolicy.primary(Settings(personality=Settings().personality.copy(roastMode=false)),joke))

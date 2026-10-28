@@ -9,7 +9,7 @@ class QuestionAndRoastTest {
   for(text in listOf("Świetnie, kurwa, bardzo dobrze ci poszło.","Poprawna odpowiedź, kurwa. Kontynuujmy ćwiczenie."))
    assertEquals("",SpokenRoastPolicy.freshPrimary(Settings(),text,"CORRECT",emptyList()))
   val joke="Kurwa, recepcjonista usłyszał twój klucz i właśnie zmienił hotel w jebany escape room."
-  assertEquals(joke,SpokenRoastPolicy.freshPrimary(Settings(),joke,"ERROR",emptyList()))
+  assertTrue(SpokenRoastPolicy.freshPrimary(Settings(),joke,"ERROR",emptyList()).startsWith(joke.trimEnd('.')))
  }
  @Test fun questionAlwaysAsksForSpanishAnswer() {
   for(word in listOf(LessonWord("la llave","klucz"),LessonWord("el café","kawa"))) {
@@ -25,7 +25,7 @@ class QuestionAndRoastTest {
  @Test fun differentContextualPunchlineSurvivesAndSettingsApply() {
   val new="Kurwa, z taką rezerwacją recepcjonista wystawi rachunek twojej walizce."
   val old="Twój mózg odpalił tryb samolotowy, kurwa."
-  assertEquals(new,SpokenRoastPolicy.freshPrimary(Settings(),new,"CORRECT",listOf(old)))
+  assertTrue(SpokenRoastPolicy.freshPrimary(Settings(),new,"CORRECT",listOf(old)).startsWith(new.trimEnd('.')))
   assertEquals("",SpokenRoastPolicy.freshPrimary(Settings(personality=Settings().personality.copy(roastMode=false)),new,"CORRECT",emptyList()))
   assertEquals("",SpokenRoastPolicy.freshPrimary(Settings(),"Twoja wymowa jest fatalna, kurwa.","CORRECT",emptyList()))
  }
