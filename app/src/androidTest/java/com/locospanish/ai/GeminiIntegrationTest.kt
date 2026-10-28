@@ -365,6 +365,64 @@ class GeminiIntegrationTest {
             assertEquals(2,audio.words.count { it=="la reserva" })
         }
     }
+    /** A long, messy conversation with a scripted Gemini: after every learner turn LOCO must speak again or listen, never stall. */
+    @Test fun longMessyConversationNeverGoesSilent()=runBlocking {
+        for(level in listOf(Level.A1,Level.A2,Level.B1)) runClient(settings=Settings(level=level),scenario="hotel",assessmentRetryMs=150) { client,socket,audio ->
+            kotlinx.coroutines.coroutineScope {
+                val chunk=android.util.Base64.encodeToString(ByteArray(19200),android.util.Base64.NO_WRAP)
+                fun card()=com.locospanish.ai.tutor.LessonWord(client.state.value.currentWord,client.state.value.currentMeaning)
+                fun speak(text:String,complete:Boolean=true) {
+                    socket.event(GeminiProtocol.json("serverContent" to GeminiProtocol.json("outputTranscription" to GeminiProtocol.json("text" to text))).toString())
+                    repeat(3) { socket.event("{\"serverContent\":{\"modelTurn\":{\"parts\":[{\"inlineData\":{\"mimeType\":\"audio/pcm;rate=24000\",\"data\":\"$chunk\"}}]}}}") }
+                    if(complete) { socket.event("{\"serverContent\":{\"generationComplete\":true}}");socket.event("{\"serverContent\":{\"turnComplete\":true}}") }
+                }
+                fun reply()="Ja pierdolę, ty pajacu, recepcjonistka już się śmieje z twojej walizki. "+com.locospanish.ai.tutor.LessonTurnPolicy.question(card())
+                var toolNo=0
+                fun grade(heard:String,verdict:String) {
+                    val id="soak-${level}-${toolNo++}"
+                    socket.event(GeminiProtocol.json("toolCall" to GeminiProtocol.json("functionCalls" to listOf(GeminiProtocol.json("id" to id,"name" to "assess_user_turn","args" to GeminiProtocol.json(
+                        "verdict" to verdict,"heard_text" to heard,"evidence" to heard,"confidence" to "CERTAIN","correction" to if(verdict=="ERROR") card().es else "","explanation" to if(verdict=="ERROR") "Inne słowo." else "",
+                        "error_kind" to "VOCABULARY","roast" to "Kurwa, z takim $heard recepcja da ci kuwetę zamiast pokoju.","words" to emptyList<String>()))))).toString())
+                }
+                var lastHeard="";var lastVerdict="CORRECT";var nudgesWithoutTool=0
+                var seen=0
+                val responder=launch {
+                    while(true) {
+                        val batch=synchronized(socket.sent) { socket.sent.drop(seen).also { seen=socket.sent.size } }
+                        for(message in batch) {
+                            delay(25)
+                            when {
+                                message.contains("TECHNICZNE PONOWIENIE") -> if(nudgesWithoutTool-->0) speak("Kurwa, gadaj dalej, matole.") else grade(lastHeard,lastVerdict)
+                                message.contains("toolResponse") -> if(message.contains("assess_user_turn") || message.contains("soak-")) speak(reply())
+                                message.contains("clientContent") -> speak(reply())
+                            }
+                        }
+                        delay(10)
+                    }
+                }
+                socket.event("{\"setupComplete\":{}}")
+                withTimeout(3000) { while(client.state.value.currentWord.isBlank()) delay(10) }
+                suspend fun turn(label:String,block:suspend ()->Unit) {
+                    delay(150)
+                    val before=audio.packets
+                    block()
+                    val ok=withTimeoutOrNull(5000) { while(!(audio.packets>before && client.state.value.phase!=VoicePhase.THINKING)) delay(20);true } ?: false
+                    assertTrue("$level / $label: LOCO went silent (phase=${client.state.value.phase}).\n"+Diag.dump().takeLast(4000),ok)
+                    assertTrue("$level / $label: disconnected",client.state.value.connected && client.state.value.phase!=VoicePhase.ERROR)
+                }
+                repeat(3) { round ->
+                    turn("correct $round") { val w=card().es;lastHeard=w;lastVerdict="CORRECT";recognized(socket,w);delay(30);grade(w,"CORRECT") }
+                    turn("wrong $round") { lastHeard="gato";lastVerdict="ERROR";recognized(socket,"gato");delay(30);grade("gato","ERROR") }
+                    turn("grade skipped once $round") { val w=card().es;lastHeard=w;lastVerdict="CORRECT";recognized(socket,w) }
+                    turn("grade skipped twice $round") { nudgesWithoutTool=1;lastHeard="eee no sé";lastVerdict="UNCERTAIN";recognized(socket,"eee no sé") }
+                    turn("premature draft $round") { val w=card().es;lastHeard=w;lastVerdict="CORRECT";recognized(socket,w);speak("No i co tu",complete=false);delay(30);grade(w,"CORRECT") }
+                    turn("question $round") { lastHeard="co to znaczy?";lastVerdict="UNCERTAIN";recognized(socket,"co to znaczy?");delay(30);grade("co to znaczy?","UNCERTAIN") }
+                    turn("other lesson word $round") { lastHeard="mañana";lastVerdict="CORRECT";recognized(socket,"mañana");delay(30);grade("mañana","CORRECT") }
+                }
+                responder.cancel()
+            }
+        }
+    }
     @Test fun aReplyWithoutAGradeAfterTheRetryIsStillHeardNotSilenced()=runBlocking {
         runClient(scenario="hotel",assessmentRetryMs=120) { client,socket,audio ->
             socket.event("{\"setupComplete\":{}}")
