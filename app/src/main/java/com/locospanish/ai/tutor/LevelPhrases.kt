@@ -54,4 +54,13 @@ object LevelPhrases {
         val blocked = excluded.map(AssessmentPolicy::key).toSet()
         return words(scenario, level).firstOrNull { AssessmentPolicy.key(it.es) !in blocked }
     }
+    /** Never leaves the learner without a card: fresh material first, then unmastered items, then other scenes of the same level. */
+    fun anyNext(scenario: String, level: Level, known: Collection<String>, taught: Collection<String>, current: String? = null): LessonWord? {
+        val knownKeys = known.map(AssessmentPolicy::key).toSet()
+        val skip = knownKeys + taught.map(AssessmentPolicy::key) + listOfNotNull(current?.let(AssessmentPolicy::key))
+        fun bank(s: String) = if(level == Level.A1) LessonReserve.words(s) else words(s, level)
+        val scenes = listOf(scenario) + (TopicLessons.plans.keys - scenario)
+        return scenes.firstNotNullOfOrNull { s -> bank(s).firstOrNull { AssessmentPolicy.key(it.es) !in skip } }
+            ?: bank(scenario).firstOrNull { AssessmentPolicy.key(it.es) !in knownKeys && AssessmentPolicy.key(it.es) != current?.let(AssessmentPolicy::key) }
+    }
 }

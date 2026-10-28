@@ -579,7 +579,7 @@ class GeminiLiveClient(
                     val selectedNext = if(review.active && advanceWord) review.advance(true) else if(holdWord) activeLessonWord else if(requestedLearningTopic.isNotBlank() && proposed.es.isBlank() && assessment?.verdict != "ERROR") null else
                         com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary+if(skipWordRequested) listOfNotNull(activeLessonWord?.es) else emptyList(),requestedLearningTopic.isBlank(),settings.level == com.locospanish.ai.model.Level.A1,if(assessment?.verdict == "ERROR") assessment?.correction.orEmpty() else "",preferScenario=requestedLearningTopic.isBlank(),level=taskSettings.level)
                     val next=selectedNext ?: if(!review.active && !holdWord) bufferedWord() ?:
-                        if(requestedLearningTopic.isBlank()) (if(taskSettings.level==Level.A1) LessonReserve.next(scenario,knownVocabulary+taughtVocabulary) else LevelPhrases.next(scenario,taskSettings.level,knownVocabulary+taughtVocabulary)) else null else null
+                        if(requestedLearningTopic.isBlank()) LevelPhrases.anyNext(scenario,taskSettings.level,knownVocabulary,taughtVocabulary,attemptedWord?.es) else null else null
                     if(next != null) setWord(next) else if(!holdWord && !review.active) { activeLessonWord=null;requestTask(generation) }
                     if(selectedNext==null && next!=null && generatedWords[taskTopic()].orEmpty().size<3) fetchMaterial(generation)
                     response.addProperty("current_word",next?.es.orEmpty());response.addProperty("current_translation",next?.pl.orEmpty())
@@ -849,7 +849,7 @@ class GeminiLiveClient(
     }
     private fun requestTask(generation:Int=epoch) {
         bufferedWord()?.let { deliverTask(it,generation);return }
-        val reserve=if(requestedLearningTopic.isBlank()) (if(taskSettings.level==Level.A1) LessonReserve.next(lessonScenario,knownVocabulary+taughtVocabulary) else LevelPhrases.next(lessonScenario,taskSettings.level,knownVocabulary+taughtVocabulary)) else null
+        val reserve=if(requestedLearningTopic.isBlank()) LevelPhrases.anyNext(lessonScenario,taskSettings.level,knownVocabulary,taughtVocabulary,lastAcceptedWord?.es) else null
         if(reserve!=null) deliverTask(reserve,generation)
         else mutable.update { it.copy(taskPending=true,taskError="",phase=if(it.connected) VoicePhase.THINKING else it.phase,message="Przygotowuję nowe słowo z tematu: ${taskTopic()}") }
         fetchMaterial(generation)
