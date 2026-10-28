@@ -98,12 +98,26 @@ class WordAttemptPolicyTest {
     }
     @Test fun nearMissTranscriptIsUncertainNotAMockedError() {
         for((target,answer) in listOf("la habitación" to "habitacio","la reserva" to "reserbo","el pasaporte" to "pasaporta")) {
-            val grade=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("CORRECT",target))
+            val grade=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("UNCERTAIN",answer))
             assertEquals("$target / $answer","UNCERTAIN",grade.verdict)
             assertFalse(WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,grade))
+            // Gemini heard the audio as correct: a one-sound transcript slip is credited.
+            val heard=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("CORRECT",target))
+            assertEquals("$target / $answer","CORRECT",heard.verdict)
+            assertTrue(WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,heard))
         }
         val grade=WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka"))
         assertEquals("ERROR",grade.verdict)
+    }
+    @Test fun polishSpelledOrSplitTranscriptOfTheRightWordIsCorrect() {
+        for((target,answer) in listOf("una noche" to "una nocze","una noche" to "lano cze","la llave" to "la jawe","la cerveza" to "serbesa","la habitación" to "abitasjon","el pollo" to "el pojo","yo" to "jo","la playa" to "la plaja")) {
+            val grade=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("UNCERTAIN",answer))
+            assertEquals("$target / $answer","CORRECT",grade.verdict)
+            assertTrue("$target / $answer",WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,grade))
+        }
+        // A different word is still not credited.
+        assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(LessonWord("una noche","noc"),"un gato",Assessment("UNCERTAIN","un gato")).verdict)
+        assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(LessonWord("la llave","klucz"),"nie wiem",Assessment("UNCERTAIN","nie wiem")).verdict)
     }
     @Test fun geminiHearingTheRightWordWinsOverAGarbledTranscript() {
         val night=LessonWord("una noche","jedna noc")
@@ -113,7 +127,6 @@ class WordAttemptPolicyTest {
             assertTrue(garbled,WordAttemptPolicy.canAdvance(night,garbled,grade,"una noche"))
         }
         // Without Gemini's certain hearing, or when the transcript is clearly another lesson word, nothing is credited.
-        assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(night,"no cze",Assessment("UNCERTAIN","no cze")).verdict)
         assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(night,"la cerveza",Assessment("UNCERTAIN","la cerveza"),false,"una noche").verdict)
         assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(night,"nie wiem",Assessment("UNCERTAIN","nie wiem"),false,"una noche").verdict)
     }

@@ -51,6 +51,22 @@ object WordAttemptPolicy {
             .replace("ñ","ny").replace(Regex("y$"),"i")
         return s.replace(Regex("([^r])\\1+"),"$1")
     }
+    /** The same sound written the Polish way, as the transcriber often spells a Pole's Spanish (nocze, jo, kabaljo). */
+    fun polishKey(text:String):String {
+        var s=text.lowercase().replace(Regex("[^\\p{L}]+"),"")
+        s=s.replace("ch","x").replace("h","x").replace("cz","\u0002").replace("ć","\u0002").replace(Regex("ci(?=[aeouó])"),"\u0002")
+            .replace("sz","s").replace("ś","s").replace(Regex("si(?=[aeouó])"),"s").replace("dż","y").replace("rz","y").replace("ż","y").replace("ź","y")
+            .replace("y","i").replace(Regex("(?<=[bcdfgklmnprstwz])j"),"i").replace("j","y").replace("ł","l").replace("w","b").replace("v","b").replace("c","s").replace("z","s").replace("qu","k")
+            .replace("ń","ny").replace("ó","u").replace("ę","e").replace("ą","o").replace("ll","y")
+        s=java.text.Normalizer.normalize(s,java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"),"").replace("\u0002","kh").replace(Regex("y$"),"i")
+        return s.replace(Regex("([^r])\\1+"),"$1")
+    }
+    private fun heardKeys(text:String):Set<String> {
+        val raw=AssessmentPolicy.display(trialText(text))
+        val keys=setOf(soundKey(raw),polishKey(raw)).filter { it.isNotBlank() }
+        // A leading article glued to the noun by the transcriber ("lano che") is still that noun.
+        return keys.flatMap { k -> listOf(k)+Regex("^(?:unas|unos|una|un|las|los|la|el)(?=.{3,})").find(k)?.let { listOf(k.substring(it.value.length)) }.orEmpty() }.toSet()
+    }
     private fun distance(a:String,b:String):Int {
         var previous=IntArray(b.length+1) { it }
         for(i in 1..a.length) {
@@ -66,15 +82,17 @@ object WordAttemptPolicy {
     }
     /** The transcript spells the target differently but it sounds identical in Spanish (abitación, cerbeza, yave). */
     fun soundsLike(word:LessonWord,text:String):Boolean {
-        val heard=soundKey(AssessmentPolicy.display(trialText(text)))
-        return heard.isNotBlank() && alternativesOf(word).any { soundKey(it)==heard }
+        val heard=heardKeys(text)
+        return alternativesOf(word).any { soundKey(it) in heard }
     }
     /** A near miss of a single word: likely a transcription slip, never proof of a real mistake. */
     fun nearMiss(word:LessonWord,text:String):Boolean {
-        val heard=soundKey(AssessmentPolicy.display(trialText(text)))
-        if(heard.length<3) return false
-        return alternativesOf(word).any { val target=soundKey(it); target.length>=3 && distance(heard,target)<=if(target.length>=6) 2 else 1 }
+        val heard=heardKeys(text).filter { it.length>=3 }
+        return alternativesOf(word).any { val target=soundKey(it); target.length>=3 && heard.any { h -> distance(h,target)<=if(target.length>=6) 2 else 1 } }
     }
+    /** A near miss safe to credit: never one that drops ñ (año → ano is another word, not an accent). */
+    private fun creditableNearMiss(word:LessonWord,text:String)=LessonTurnPolicy.singleWord(trialText(text)) && nearMiss(word,text) &&
+        !(word.es.contains('ñ') && !Regex("ñ|ni|nj|ny").containsMatchIn(trialText(text).lowercase()))
     private val catalogKeys by lazy { (TopicLessons.plans.keys.flatMap { TopicLessons.vocabulary(it) }).map { AssessmentPolicy.key(it.es) }.toSet() }
     /** Gemini hears the audio; its CERTAIN CORRECT with the target in heard_text wins over a garbled transcript. */
     private fun modelHeardTarget(word:LessonWord,text:String,modelHeard:String):Boolean {
@@ -101,10 +119,14 @@ object WordAttemptPolicy {
         // Definite and indefinite articles of the same gender are both valid answers.
         if(expectedArticle in setOf("el","la","los","las") && !genderCorrect && matches(word,text) && singleTrial)
             return Assessment("ERROR",text,word.es,"Rodzajnik nie pasuje do tego rzeczownika.")
-        if(genderCorrect && singleTrial && (matches(word,text) || soundsLike(word,text)))
+        // A whole utterance that sounds like the target (also split or Polish-spelled by the transcriber) is that answer.
+        if(genderCorrect && ((singleTrial && matches(word,text)) || (bare.split(' ').size<=3 && soundsLike(word,text))))
             return Assessment("CORRECT",text,explanation="Rozpoznano poprawną odpowiedź na ćwiczone słowo. Nie oceniaj wymowy na podstawie samej pisowni.")
         if(modelHeardTarget(word,text,modelHeard))
             return Assessment("CORRECT",text,explanation="Gemini usłyszało poprawne słowo ${word.es}; automatyczny zapis tekstu je przekręcił. Zalicz bez sugerowania błędu.")
+        // Gemini heard the audio and called it correct; one sound off in the transcript is the transcriber, not the learner.
+        if(creditableNearMiss(word,text) && checked.verdict=="CORRECT")
+            return Assessment("CORRECT",text,explanation="Gemini usłyszało poprawne ${word.es}; zapis tekstu różni się jednym dźwiękiem. Zalicz bez sugerowania błędu.")
         if(singleTrial && nearMiss(word,text) && checked.verdict!="ERROR")
             return Assessment("UNCERTAIN",text,explanation="Transkrypcja jest bliska słowa ${word.es}, ale niepewna. Nie śmiej się i nie zarzucaj błędu; poproś krótko o jeszcze jedną wyraźną próbę.")
         if(checked.verdict == "CORRECT" && !matches(word,text)) {
@@ -113,7 +135,7 @@ object WordAttemptPolicy {
         }
         return checked
     }
-    fun canAdvance(word:LessonWord?,text:String,checked:Assessment,modelHeard:String = "")=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text) || modelHeardTarget(word,text,modelHeard))
+    fun canAdvance(word:LessonWord?,text:String,checked:Assessment,modelHeard:String = "")=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text) || modelHeardTarget(word,text,modelHeard) || creditableNearMiss(word,text))
     fun hold(word:LessonWord?)="NIE PRZECHODŹ DO KOLEJNEGO SŁOWA. Nie zaliczono nowej poprawnej odpowiedzi. " +
         (word?.let { "Aktualne zadanie: ${it.es} — ${it.pl}. " } ?: "") +
         "Przy błędzie popraw tę próbę; przy pytaniu lub nie wiem pomóż krótko. Przy braku wypowiedzi czekaj na ucznia. Bez nowego słowa, bez fałszywej pochwały i bez kończenia lekcji."
