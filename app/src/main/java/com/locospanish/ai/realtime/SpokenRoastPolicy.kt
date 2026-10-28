@@ -11,7 +11,8 @@ object SpokenRoastPolicy {
         "jebany cyrk" to { j -> j.trimEnd('.','!',' ')+". Jebany cyrk." },
         "o chuj" to { j -> "O chuj, "+j.replaceFirstChar { it.lowercase() } })
     // A riposte without a direct jab at the learner gets one, rotated so consecutive turns differ.
-    private val insultForms=listOf("ty jebany matole","baranie","ty pierdolony pajacu","łamago","gilipollas","ty zjebany cymbale","capullo","gamoniu","ty kurewski ciołku","pedazo de burro")
+    private val insultForms=listOf("ty jebany matole","baranie","ty pierdolony pajacu","łamago","gilipollas","ty zjebany cymbale","capullo","gamoniu","ty kurewski ciołku","pedazo de burro",
+        "ty chodzący wstydzie Hiszpanii","ofermo jebana","ty językowy kaleko","pendejo","ty pierdolony turysto","cabrón","ty ciulu","imbécil","ty jełopie","półgłówku","tontolaba","ty zjebie z Biedronki")
     private val insult=Regex("matol|baran|ciul|cioł|ciol|pajac|łamag|lamag|cymbal|debil|idiot|kretyn|oferm|gamo[nń]|głąb|glab|zjeb|frajer|gilipoll|imb[eé]cil|payaso|capull|pendej|burro|cabr[oó]n|tont[oa]\\b",RegexOption.IGNORE_CASE)
     private fun opener(text:String)=text.trim().lowercase().split(Regex("[^\\p{L}]+")).filter { it.isNotBlank() }.take(2).joinToString(" ")
     fun primary(s: Settings, planned: String, verdict: String = "ERROR", recent: Collection<String> = emptyList()): String {
@@ -29,8 +30,9 @@ object SpokenRoastPolicy {
             }
         }
         if(s.personality.profanity == Profanity.STRONG && s.personality.roast >= 80 && !insult.containsMatchIn(result)) {
-            val used=recent.toList().takeLast(3).joinToString(" ").lowercase()
-            val jab=insultForms.firstOrNull { !used.contains(it) } ?: insultForms[Math.floorMod(recent.size,insultForms.size)]
+            val used=recent.toList().takeLast(10).joinToString(" ").lowercase()
+            val fresh=insultForms.filter { !used.contains(it.lowercase()) }.ifEmpty { insultForms }
+            val jab=fresh[Math.floorMod(planned.hashCode()+recent.size*7,fresh.size)]
             result=result.trimEnd('.','!',' ',',')+", $jab!"
         }
         return result
@@ -68,7 +70,8 @@ object SpokenRoastPolicy {
     }
     fun creativeBrief(turn:Int,recent:Collection<String>):String {
         val techniques=listOf("parodia oburzonego rozmówcy: jedna krótka kwestia i absurdalna konsekwencja", "ironiczny komplement zakończony bezczelną puentą", "udawany komunikat z miejsca sceny, który reaguje na dokładną wypowiedź ucznia", "dosłowne znaczenie pomyłki jako komiczna katastrofa w scenie", "cięta riposta na dokładne słowa ucznia, bez zmiany tematu", "teatralne niedowierzanie i zaskakujące porównanie", "krótki dialog dwóch postaci spierających się o absurdalny skutek wpadki", "parodia przesadnie poważnego eksperta, którego wywód kończy uliczna puenta", "szydercza relacja na żywo z sytuacyjnej wpadki", "odwrócenie oczekiwań: zwykły początek, nieoczekiwany i dosadny finał")
-        return "Kierunek tej riposty: ${techniques[Math.floorMod(turn,techniques.size)]}. To technika, nie gotowy tekst: wymyśl własną treść z aktualnej wypowiedzi. Nie używaj poprzednich rekwizytów ani motywów, nawet podmienionych synonimami. Nie komentuj stale mózgu, IQ, geniusza ani trybu samolotowego. Ostatnie komentarze: ${recent.toList().takeLast(3).joinToString(" | ").take(1000)}. Nie odczytuj briefu."
+        val targets=listOf("wymyślony wygląd ucznia","jego stara i rodzinka","jego kac i poranne życie","Janusz na wakacjach w sandałach ze skarpetami","jego randki i życie uczuciowe","jego robota i szef","jego mieszkanie i sąsiedzi","jego akcent i to, jak brzmi dla Hiszpanów","jego lenistwo i wymówki","jego telefon, historia wyszukiwania i memy","jego samochód i jazda","jego kuchnia i to, co je")
+        return "Kierunek tej riposty: ${techniques[Math.floorMod(turn,techniques.size)]}; cel żartu: ${targets[Math.floorMod(turn*5+3,targets.size)]}, połączony z dokładną wypowiedzią ucznia. To technika, nie gotowy tekst: wymyśl własną treść z aktualnej wypowiedzi. Nie używaj poprzednich rekwizytów ani motywów, nawet podmienionych synonimami. Nie komentuj stale mózgu, IQ, geniusza ani trybu samolotowego. Inna obelga, otwarcie i przekleństwo niż w ostatnich komentarzach: ${recent.toList().takeLast(5).joinToString(" | ").take(1400)}. Nie odczytuj briefu."
     }
     fun contextualPrimary(s:Settings,planned:String,verdict:String,recent:Collection<String>,heard:String,word:com.locospanish.ai.tutor.LessonWord?):String {
         val candidate=freshPrimary(s,primary(s,planned,verdict,recent),verdict,recent)
