@@ -106,11 +106,21 @@ object WordAttemptPolicy {
         val other=AssessmentPolicy.key(AssessmentPolicy.display(trialText(text)))
         return !(other in catalogKeys && other!=AssessmentPolicy.key(word.es) && !nearMiss(word,text))
     }
+    /** Another lesson word said alongside the card word ("mañana… hoy") makes the answer ambiguous, never a pass. */
+    fun saysOtherLessonWord(word:LessonWord,text:String):Boolean {
+        val own=alternativesOf(word).map { AssessmentPolicy.key(it) }.toSet()+AssessmentPolicy.key(word.es)
+        val tokens=AssessmentPolicy.speech(text).split(' ').filter { it.isNotBlank() }
+        val pieces=tokens+tokens.windowed(2).map { it.joinToString(" ") }
+        return pieces.any { val k=AssessmentPolicy.key(it); k.length>=3 && k in catalogKeys && k !in own && own.none { o -> o.contains(k) } }
+    }
     fun evaluate(word:LessonWord?,text:String,checked:Assessment, reliableTranscript:Boolean = false, modelHeard:String = ""):Assessment {
         if(word == null || newTopic(text)) return checked
         if(text.isBlank() || needsHelp(text)) return Assessment("UNCERTAIN",text,explanation="Brak odpowiedzi na ćwiczone słowo. Pomóż i zostań przy tym samym zadaniu; nie zaliczaj komentarza.")
         val trial=trialText(text)
         val bare=AssessmentPolicy.speech(trial)
+        if(LessonTurnPolicy.singleWord(word.es) && saysOtherLessonWord(word,text))
+            return if(matches(word,text)) Assessment("UNCERTAIN",text,explanation="Uczeń powiedział też inne słowo niż ${word.es}. Nie zaliczaj; niech powie samo słowo z karty.")
+                else Assessment("ERROR",text,word.es,"To inne słowo niż ${word.es} (${word.pl}).")
         val singleTrial=LessonTurnPolicy.singleWord(trial) || Regex("^[0-9]+$").matches(bare) || directAnswer(word,text)
         val article=bare.substringBefore(' ').takeIf { it in setOf("el","la","los","las","un","una","unos","unas") }
         val actualCore=AssessmentPolicy.speech(AssessmentPolicy.display(trial))
@@ -135,7 +145,8 @@ object WordAttemptPolicy {
         }
         return checked
     }
-    fun canAdvance(word:LessonWord?,text:String,checked:Assessment,modelHeard:String = "")=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text) || modelHeardTarget(word,text,modelHeard))
+    fun canAdvance(word:LessonWord?,text:String,checked:Assessment,modelHeard:String = "")=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" &&
+        !(LessonTurnPolicy.singleWord(word.es) && saysOtherLessonWord(word,text)) && (matches(word,text) || soundsLike(word,text) || modelHeardTarget(word,text,modelHeard))
     fun hold(word:LessonWord?)="NIE PRZECHODŹ DO KOLEJNEGO SŁOWA. Nie zaliczono nowej poprawnej odpowiedzi. " +
         (word?.let { "Aktualne zadanie: ${it.es} — ${it.pl}. " } ?: "") +
         "Przy błędzie popraw tę próbę; przy pytaniu lub nie wiem pomóż krótko. Przy braku wypowiedzi czekaj na ucznia. Bez nowego słowa, bez fałszywej pochwały i bez kończenia lekcji."

@@ -109,6 +109,15 @@ class WordAttemptPolicyTest {
         val grade=WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka"))
         assertEquals("ERROR",grade.verdict)
     }
+    @Test fun anotherLessonWordNeverPassesTheCard() {
+        val today=LessonWord("hoy","dzisiaj")
+        for(text in listOf("mañana","manana","mañana hoy","hoy mañana","Mañana.")) for(verdict in listOf("CORRECT","UNCERTAIN")) for(heard in listOf("","hoy")) {
+            val grade=WordAttemptPolicy.evaluate(today,text,Assessment(verdict,text),false,heard)
+            assertNotEquals("$text/$verdict/$heard","CORRECT",grade.verdict)
+            assertFalse("$text/$verdict/$heard",WordAttemptPolicy.canAdvance(today,text,Assessment("CORRECT",text),heard))
+        }
+        assertEquals("CORRECT",WordAttemptPolicy.evaluate(today,"hoy",Assessment("CORRECT","hoy")).verdict)
+    }
     @Test fun polishSpelledOrSplitTranscriptOfTheRightWordIsCorrect() {
         for((target,answer) in listOf("una noche" to "una nocze","una noche" to "lano cze","la llave" to "la jawe","la cerveza" to "serbesa","la habitación" to "abitasjon","el pollo" to "el pojo","yo" to "jo","la playa" to "la plaja")) {
             val grade=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("UNCERTAIN",answer))
