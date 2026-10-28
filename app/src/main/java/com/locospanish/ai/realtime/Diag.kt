@@ -19,6 +19,7 @@ object Diag {
         while (lines.size > 500) lines.removeFirst()
     }
     @Synchronized fun dump(): String = lines.joinToString("\n")
+    @Synchronized fun clear() { lines.clear(); repeats = 0 }
     fun summary(e: JsonObject): String {
         val parts = mutableListOf<String>()
         e.getAsJsonObject("serverContent")?.let { c ->

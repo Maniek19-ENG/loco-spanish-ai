@@ -93,7 +93,7 @@ object WordAttemptPolicy {
     /** The transcript must at least sound close to the target; Gemini's word alone never credits something else. */
     private fun soundsClose(word:LessonWord,text:String):Boolean {
         val heard=heardKeys(text)
-        return alternativesOf(word).any { val target=soundKey(it); heard.any { h -> distance(h,target)<=maxOf(1,target.length/3) } }
+        return alternativesOf(word).any { val target=soundKey(it); heard.any { h -> distance(h,target)<=maxOf(1,target.length/2) } }
     }
     private val catalogKeys by lazy { (TopicLessons.plans.keys.flatMap { TopicLessons.vocabulary(it) }).map { AssessmentPolicy.key(it.es) }.toSet() }
     /** Gemini hears the audio; its CERTAIN CORRECT with the target in heard_text wins over a garbled transcript. */

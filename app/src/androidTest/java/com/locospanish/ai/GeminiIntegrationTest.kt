@@ -400,6 +400,7 @@ class GeminiIntegrationTest {
                         delay(10)
                     }
                 }
+                Diag.clear()
                 socket.event("{\"setupComplete\":{}}")
                 withTimeout(3000) { while(client.state.value.currentWord.isBlank()) delay(10) }
                 suspend fun turn(label:String,block:suspend ()->Unit) {
@@ -407,7 +408,8 @@ class GeminiIntegrationTest {
                     val before=audio.packets
                     block()
                     val ok=withTimeoutOrNull(5000) { while(!(audio.packets>before && client.state.value.phase!=VoicePhase.THINKING)) delay(20);true } ?: false
-                    assertTrue("$level / $label: LOCO went silent (phase=${client.state.value.phase}).\n"+Diag.dump().takeLast(4000),ok)
+                    if(!ok) Diag.dump().lines().takeLast(140).forEach { android.util.Log.e("LocoDiag",it) }
+                    assertTrue("$level / $label: LOCO went silent (phase=${client.state.value.phase}).",ok)
                     assertTrue("$level / $label: disconnected",client.state.value.connected && client.state.value.phase!=VoicePhase.ERROR)
                 }
                 repeat(3) { round ->
