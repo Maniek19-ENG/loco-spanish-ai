@@ -44,10 +44,10 @@ class StartupTest {
      return null
     }
     var button:AccessibilityNodeInfo?=null
-    fun scroll(node:AccessibilityNodeInfo?):Boolean {
+    fun scroll(node:AccessibilityNodeInfo?,action:Int=AccessibilityNodeInfo.ACTION_SCROLL_FORWARD):Boolean {
      if(node==null) return false
-     if(node.isScrollable && node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) return true
-     for(i in 0 until node.childCount) if(scroll(node.getChild(i))) return true
+     if(node.isScrollable && node.performAction(action)) return true
+     for(i in 0 until node.childCount) if(scroll(node.getChild(i),action)) return true
      return false
     }
     fun dump(node:AccessibilityNodeInfo?,depth:Int=0) {
@@ -56,7 +56,7 @@ class StartupTest {
      for(i in 0 until node.childCount) dump(node.getChild(i),depth+1)
     }
     try {
-    withTimeout(30000) { while(button==null || button?.isVisibleToUser!=true) { val root=ins.uiAutomation.rootInActiveWindow;button=find(root);if(button==null || button?.isVisibleToUser!=true) scroll(root);delay(250) } }
+    withTimeout(30000) { while(button==null || button?.isVisibleToUser!=true) { val root=ins.uiAutomation.rootInActiveWindow;button=find(root);if(button==null || button?.isVisibleToUser!=true) { if(!scroll(root)) scroll(root,AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) };delay(250) } }
     } catch(e:TimeoutCancellationException) { android.util.Log.e("LocoDiag","window=${ins.uiAutomation.rootInActiveWindow?.packageName} activity=${activity?.isFinishing}");dump(ins.uiAutomation.rootInActiveWindow);throw e }
     var clickable=button
     while(clickable!=null && !clickable!!.isClickable) clickable=clickable!!.parent
