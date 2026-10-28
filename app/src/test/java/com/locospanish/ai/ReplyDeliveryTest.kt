@@ -41,4 +41,9 @@ class ReplyDeliveryTest {
   try { val jobs=(0 until 100).map { pool.submit<Boolean> { inputs.map { AssessmentPolicy.key(it) to AssessmentPolicy.speech(it) }==before } };assertTrue(jobs.all { it.get() }) } finally { pool.shutdownNow() }
   assertEquals("31",AssessmentPolicy.key("treinta y uno"));assertNotEquals(AssessmentPolicy.key("ano"),AssessmentPolicy.key("año"));assertEquals(AssessmentPolicy.key("la habitación"),AssessmentPolicy.key("habitación"))
  }
+ @Test fun riposteMayUseTheSpanishWordButReviewNeverRevealsIt() {
+  val prompt=com.locospanish.ai.realtime.GeminiProtocol.prompt(Settings(),"hotel","")
+  assertTrue(prompt.contains("MOŻESZ wpleść w ripostę"));assertTrue(prompt.contains("W odpytywaniu nigdy nie zdradzaj odpowiedzi"))
+  assertTrue(prompt.contains("joder"));assertTrue(prompt.contains("MÓW WYRAŹNIE"))
+ }
 }
