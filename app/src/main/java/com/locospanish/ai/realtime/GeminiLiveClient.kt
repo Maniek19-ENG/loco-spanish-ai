@@ -875,7 +875,7 @@ class GeminiLiveClient(
         silenceJob=scope.launch {
             delay(silenceGuardMs)
             // A real learner interruption comes with their speech; only a cut without it is silence.
-            if(epoch!=generation || !state.value.connected || lastAudioAt>since || lastUserInputAt>since-if(reason=="interrupted") 3000 else 0 || activeLessonWord!=word) return@launch
+            if(epoch!=generation || !state.value.connected || lastAudioAt>since || lastUserInputAt>since-(if(reason=="interrupted") 3000 else 0) || activeLessonWord!=word) return@launch
             val key="$owner:$reason"
             if(silenceNudgedFor!=key) {
                 silenceNudgedFor=key;Diag.log("SILENCE $reason -> ask Gemini to finish")
