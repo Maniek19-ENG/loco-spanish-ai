@@ -52,7 +52,7 @@ class RoastUpgradeTest {
         assertTrue(GeminiProtocol.turnGuidance(s, "CORRECT").contains("BEZ riposty o błędzie"));assertTrue(GeminiProtocol.turnGuidance(s, "CORRECT").contains("szyderczo"))
         assertTrue(GeminiProtocol.turnGuidance(s, "CORRECT").contains("Nie wymyślaj błędu"))
         assertTrue(GeminiProtocol.turnGuidance(s, "ERROR").contains("poprawkę"))
-        assertTrue(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("powtórzenie"))
+        assertTrue(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("każ powtórzyć"))
         assertTrue(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("bez riposty"));assertFalse(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("poproś"))
         assertTrue(GeminiProtocol.prompt(s, "daily", "").contains("SZYDERCZY, IRONICZNY TON CAŁY CZAS"))
         assertEquals("", GeminiProtocol.turnGuidance(s.copy(personality = PersonalityEngine.preset(Preset.TEACHER)), "CORRECT"))
