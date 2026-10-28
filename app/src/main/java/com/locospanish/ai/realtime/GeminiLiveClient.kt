@@ -30,8 +30,10 @@ class GeminiLiveClient(
     private val taskTimeoutMs:Long=15000,
     private val wordCache:LessonWordCache?=LessonWordCache(context),
     private val assessmentRetryMs:Long=1800,
-    private val waitForLessonCard:Boolean=false
+    private val waitForLessonCard:Boolean=false,
+    private val cardFallbackMs:Long=4000
 ) {
+    private var cardFallbackJob: Job? = null
     private val mutable = MutableStateFlow(VoiceState())
     val state = mutable.asStateFlow()
     private val mutableAudioLevel=MutableStateFlow(0f)
@@ -579,7 +581,7 @@ class GeminiLiveClient(
                     val selectedNext = if(review.active && advanceWord) review.advance(true) else if(holdWord) activeLessonWord else if(requestedLearningTopic.isNotBlank() && proposed.es.isBlank() && assessment?.verdict != "ERROR") null else
                         com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary+if(skipWordRequested) listOfNotNull(activeLessonWord?.es) else emptyList(),requestedLearningTopic.isBlank(),settings.level == com.locospanish.ai.model.Level.A1,if(assessment?.verdict == "ERROR") assessment?.correction.orEmpty() else "",preferScenario=requestedLearningTopic.isBlank(),level=taskSettings.level)
                     val next=selectedNext ?: if(!review.active && !holdWord) bufferedWord() ?:
-                        if(requestedLearningTopic.isBlank()) LevelPhrases.anyNext(scenario,taskSettings.level,knownVocabulary,taughtVocabulary,attemptedWord?.es) else null else null
+                        if(requestedLearningTopic.isBlank()) (if(taskSettings.level==Level.A1) LessonReserve.next(scenario,knownVocabulary+taughtVocabulary) else LevelPhrases.next(scenario,taskSettings.level,knownVocabulary+taughtVocabulary)) else null else null
                     if(next != null) setWord(next) else if(!holdWord && !review.active) { activeLessonWord=null;requestTask(generation) }
                     if(selectedNext==null && next!=null && generatedWords[taskTopic()].orEmpty().size<3) fetchMaterial(generation)
                     response.addProperty("current_word",next?.es.orEmpty());response.addProperty("current_translation",next?.pl.orEmpty())
@@ -849,11 +851,23 @@ class GeminiLiveClient(
     }
     private fun requestTask(generation:Int=epoch) {
         bufferedWord()?.let { deliverTask(it,generation);return }
-        val reserve=if(requestedLearningTopic.isBlank()) LevelPhrases.anyNext(lessonScenario,taskSettings.level,knownVocabulary,taughtVocabulary,lastAcceptedWord?.es) else null
+        val reserve=if(requestedLearningTopic.isBlank()) (if(taskSettings.level==Level.A1) LessonReserve.next(lessonScenario,knownVocabulary+taughtVocabulary) else LevelPhrases.next(lessonScenario,taskSettings.level,knownVocabulary+taughtVocabulary)) else null
         if(reserve!=null) deliverTask(reserve,generation)
         else mutable.update { it.copy(taskPending=true,taskError="",phase=if(it.connected) VoicePhase.THINKING else it.phase,message="Przygotowuję nowe słowo z tematu: ${taskTopic()}") }
         fetchMaterial(generation)
-        if(reserve==null) requestTaskFromLive()
+        if(reserve==null) { requestTaskFromLive();armCardFallback(generation) }
+    }
+    /** The scene is used up and neither the planner nor Gemini delivered a card in time: take one from the level bank instead of staying silent. */
+    private fun armCardFallback(generation:Int) {
+        cardFallbackJob?.cancel()
+        val previous=lastAcceptedWord?.es
+        cardFallbackJob=scope.launch {
+            delay(cardFallbackMs)
+            if(epoch!=generation || !state.value.connected || activeLessonWord!=null || review.active || requestedLearningTopic.isNotBlank()) return@launch
+            val word=LevelPhrases.anyNext(lessonScenario,taskSettings.level,knownVocabulary,taughtVocabulary,previous) ?: return@launch
+            Diag.log("CARD FALLBACK ${word.es}")
+            deliverTask(word,generation)
+        }
     }
     private fun fetchMaterial(generation:Int) {
         val topic=taskTopic()
@@ -985,7 +999,7 @@ class GeminiLiveClient(
     }
     private fun fail(message: String) { Diag.log("FAIL $message")
  close(); mutable.update { it.copy(phase = VoicePhase.ERROR,connected = false,taskPending=false,message = message) } }
-    private fun close() { nativeReply?.cancel();nativeReply=null;nativeReplyOwner=null;nativeReplyScript="";riposteLaughter.reset();liveTaskRequest="";materialRetryAt=0L;assessmentWatchdog?.cancel();assessmentWatchdog=null;assessmentNudgedFor=null;referenceRevision=-1L;helpAttempts=0;lastHelpOwner=null;dialogueReplyOnly=false;roastRequested=false;roastWord=null;roastHeard="";openingPromptPending=true;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false; helpReferenceJob?.cancel();helpReferenceJob=null;helpReferenceTurn=null;failedHelpReferenceTurn=null;taskJob?.cancel();taskJob=null;taskKey="";prefetchJob?.cancel();prefetchJob=null;prefetchWord=null;incomingJob?.cancel();incomingJob=null;incoming?.close();incoming=null;mutableAudioLevel.value=0f; epoch++; wordJob?.cancel();wordJob=null;queuedWordTurn=null;referenceGate.cancel();referenceGate=CompletableDeferred();referenceOwner=null; deliveringTool=false; forceWordReplay=false; wordSpeaker?.close(); wordSpeaker=null; spokenWordTurn=null; activeLessonWord=null; skipWordRequested=false; lastPresentedWord=null; acceptedWordUserId=null;lastAcceptedWord=null; acceptedWordResponses.clear(); provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; supplementJob?.cancel(); supplementJob = null; roastSpeech?.let { runCatching { it.close() } }; roastSpeech = null; readingSupplement = false; answerText = ""; plannedRoast = ""; verdict = "CORRECT"; timeout?.cancel(); timeout = null; responseTimeout?.cancel(); responseTimeout = null; socket?.cancel(); socket = null; runCatching { audio?.close() }; audio = null;presentedAudio=null }
+    private fun close() { cardFallbackJob?.cancel();cardFallbackJob=null;nativeReply?.cancel();nativeReply=null;nativeReplyOwner=null;nativeReplyScript="";riposteLaughter.reset();liveTaskRequest="";materialRetryAt=0L;assessmentWatchdog?.cancel();assessmentWatchdog=null;assessmentNudgedFor=null;referenceRevision=-1L;helpAttempts=0;lastHelpOwner=null;dialogueReplyOnly=false;roastRequested=false;roastWord=null;roastHeard="";openingPromptPending=true;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false; helpReferenceJob?.cancel();helpReferenceJob=null;helpReferenceTurn=null;failedHelpReferenceTurn=null;taskJob?.cancel();taskJob=null;taskKey="";prefetchJob?.cancel();prefetchJob=null;prefetchWord=null;incomingJob?.cancel();incomingJob=null;incoming?.close();incoming=null;mutableAudioLevel.value=0f; epoch++; wordJob?.cancel();wordJob=null;queuedWordTurn=null;referenceGate.cancel();referenceGate=CompletableDeferred();referenceOwner=null; deliveringTool=false; forceWordReplay=false; wordSpeaker?.close(); wordSpeaker=null; spokenWordTurn=null; activeLessonWord=null; skipWordRequested=false; lastPresentedWord=null; acceptedWordUserId=null;lastAcceptedWord=null; acceptedWordResponses.clear(); provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; supplementJob?.cancel(); supplementJob = null; roastSpeech?.let { runCatching { it.close() } }; roastSpeech = null; readingSupplement = false; answerText = ""; plannedRoast = ""; verdict = "CORRECT"; timeout?.cancel(); timeout = null; responseTimeout?.cancel(); responseTimeout = null; socket?.cancel(); socket = null; runCatching { audio?.close() }; audio = null;presentedAudio=null }
     fun stop() { close(); mutable.update { it.copy(phase = VoicePhase.IDLE,connected = false,muted = false,message = "Rozmowa zakończona.") } }
 }
 

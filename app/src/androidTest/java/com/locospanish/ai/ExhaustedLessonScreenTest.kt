@@ -76,7 +76,7 @@ class ExhaustedLessonScreenTest {
   }
   try {
    onMain {
-    client=GeminiLiveClient(ins.targetContext,scope,http=socket,waitForLessonCard=true,wordCache=null,wordPlanner={_,_,_,_->delay(200);if(plannerFails) error("HTTP 429");listOf(
+    client=GeminiLiveClient(ins.targetContext,scope,http=socket,cardFallbackMs=60000,waitForLessonCard=true,wordCache=null,wordPlanner={_,_,_,_->delay(200);if(plannerFails) error("HTTP 429");listOf(
       com.locospanish.ai.tutor.LessonWord("el minibar","minibar"),com.locospanish.ai.tutor.LessonWord("la persiana","roleta"),com.locospanish.ai.tutor.LessonWord("la bombilla","żarówka"),com.locospanish.ai.tutor.LessonWord("el colchón","materac"))},audioFactory={object:LiveAudio {
      override fun start(onInput:(ByteArray)->Unit,onError:()->Unit,onPlaying:(Boolean)->Unit) {}
      override fun enqueue(bytes:ByteArray)=true
