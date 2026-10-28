@@ -365,6 +365,20 @@ class GeminiIntegrationTest {
             assertEquals(2,audio.words.count { it=="la reserva" })
         }
     }
+    @Test fun aReplyWithoutAGradeAfterTheRetryIsStillHeardNotSilenced()=runBlocking {
+        runClient(scenario="hotel",assessmentRetryMs=120) { client,socket,audio ->
+            socket.event("{\"setupComplete\":{}}")
+            delay(60);recognized(socket,"gato")
+            withTimeout(1000) { while(socket.sent.none { it.contains("TECHNICZNE PONOWIENIE OCENY") }) delay(5) }
+            val before=audio.packets
+            socket.event(GeminiProtocol.json("serverContent" to GeminiProtocol.json("outputTranscription" to GeminiProtocol.json("text" to "Kurwa, recepcja dalej czeka na rezerwację."))).toString())
+            socket.event("{\"serverContent\":{\"modelTurn\":{\"parts\":[{\"inlineData\":{\"mimeType\":\"audio/pcm;rate=24000\",\"data\":\"AAAAAA==\"}}]}}}")
+            socket.event("{\"serverContent\":{\"turnComplete\":true}}")
+            withTimeout(1500) { while(audio.packets==before) delay(10) }
+            assertNotEquals(VoicePhase.THINKING,client.state.value.phase)
+            assertEquals("la reserva",client.state.value.currentWord)
+        }
+    }
     @Test fun missingAssessmentIsRequestedOnceAndThenAdvancesExactlyOneWord()=runBlocking {
         runClient(scenario="hotel",wordAudio=true,assessmentRetryMs=120) { client,socket,_ ->
             socket.event("{\"setupComplete\":{}}")

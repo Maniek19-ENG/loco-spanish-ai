@@ -101,10 +101,10 @@ class WordAttemptPolicyTest {
             val grade=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("UNCERTAIN",answer))
             assertEquals("$target / $answer","UNCERTAIN",grade.verdict)
             assertFalse(WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,grade))
-            // Gemini heard the audio as correct: a one-sound transcript slip is credited.
+            // Gemini's own CORRECT does not credit a word that is not what the card says.
             val heard=WordAttemptPolicy.evaluate(LessonWord(target,"test"),answer,Assessment("CORRECT",target))
-            assertEquals("$target / $answer","CORRECT",heard.verdict)
-            assertTrue(WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,heard))
+            assertNotEquals("$target / $answer","CORRECT",heard.verdict)
+            assertFalse(WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,heard))
         }
         val grade=WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka"))
         assertEquals("ERROR",grade.verdict)
@@ -115,7 +115,9 @@ class WordAttemptPolicyTest {
             assertEquals("$target / $answer","CORRECT",grade.verdict)
             assertTrue("$target / $answer",WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,grade))
         }
-        // A different word is still not credited.
+        // A different word is never credited, even when Gemini claims it heard the target.
+        for(other in listOf("gato","buenos días","perro","la mesa","hola"))
+            assertNotEquals(other,"CORRECT",WordAttemptPolicy.evaluate(LessonWord("una noche","noc"),other,Assessment("CORRECT",other),false,"una noche").verdict)
         assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(LessonWord("una noche","noc"),"un gato",Assessment("UNCERTAIN","un gato")).verdict)
         assertNotEquals("CORRECT",WordAttemptPolicy.evaluate(LessonWord("la llave","klucz"),"nie wiem",Assessment("UNCERTAIN","nie wiem")).verdict)
     }

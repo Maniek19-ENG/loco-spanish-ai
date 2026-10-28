@@ -90,13 +90,15 @@ object WordAttemptPolicy {
         val heard=heardKeys(text).filter { it.length>=3 }
         return alternativesOf(word).any { val target=soundKey(it); target.length>=3 && heard.any { h -> distance(h,target)<=if(target.length>=6) 2 else 1 } }
     }
-    /** A near miss safe to credit: never one that drops ñ (año → ano is another word, not an accent). */
-    private fun creditableNearMiss(word:LessonWord,text:String)=LessonTurnPolicy.singleWord(trialText(text)) && nearMiss(word,text) &&
-        !(word.es.contains('ñ') && !Regex("ñ|ni|nj|ny").containsMatchIn(trialText(text).lowercase()))
+    /** The transcript must at least sound close to the target; Gemini's word alone never credits something else. */
+    private fun soundsClose(word:LessonWord,text:String):Boolean {
+        val heard=heardKeys(text)
+        return alternativesOf(word).any { val target=soundKey(it); heard.any { h -> distance(h,target)<=maxOf(1,target.length/3) } }
+    }
     private val catalogKeys by lazy { (TopicLessons.plans.keys.flatMap { TopicLessons.vocabulary(it) }).map { AssessmentPolicy.key(it.es) }.toSet() }
     /** Gemini hears the audio; its CERTAIN CORRECT with the target in heard_text wins over a garbled transcript. */
     private fun modelHeardTarget(word:LessonWord,text:String,modelHeard:String):Boolean {
-        if(modelHeard.isBlank() || !(matches(word,modelHeard) || soundsLike(word,modelHeard))) return false
+        if(modelHeard.isBlank() || !(matches(word,modelHeard) || soundsLike(word,modelHeard)) || !soundsClose(word,text)) return false
         val transcript=AssessmentPolicy.speech(trialText(text))
         // A Spanish negation of the target itself ("no es la noche") is not an answer.
         if(Regex("^(?:no|nie)\\b").containsMatchIn(transcript) && (matches(word,text) || Regex("\\b(?:es|son|esta)\\b").containsMatchIn(transcript))) return false
@@ -124,18 +126,16 @@ object WordAttemptPolicy {
             return Assessment("CORRECT",text,explanation="Rozpoznano poprawną odpowiedź na ćwiczone słowo. Nie oceniaj wymowy na podstawie samej pisowni.")
         if(modelHeardTarget(word,text,modelHeard))
             return Assessment("CORRECT",text,explanation="Gemini usłyszało poprawne słowo ${word.es}; automatyczny zapis tekstu je przekręcił. Zalicz bez sugerowania błędu.")
-        // Gemini heard the audio and called it correct; one sound off in the transcript is the transcriber, not the learner.
-        if(creditableNearMiss(word,text) && checked.verdict=="CORRECT")
-            return Assessment("CORRECT",text,explanation="Gemini usłyszało poprawne ${word.es}; zapis tekstu różni się jednym dźwiękiem. Zalicz bez sugerowania błędu.")
         if(singleTrial && nearMiss(word,text) && checked.verdict!="ERROR")
             return Assessment("UNCERTAIN",text,explanation="Transkrypcja jest bliska słowa ${word.es}, ale niepewna. Nie śmiej się i nie zarzucaj błędu; poproś krótko o jeszcze jedną wyraźną próbę.")
         if(checked.verdict == "CORRECT" && !matches(word,text)) {
             return if(LessonTurnPolicy.singleWord(text.trim().trimEnd('.', '!', '?'))) Assessment("ERROR",text,word.es,"Ćwiczymy słowo „${word.pl}”. Ta odpowiedź nie odpowiada aktualnemu słowu.")
-            else checked
+            // A longer reply without the card word is not a pass for the word task, whatever Gemini graded.
+            else Assessment("UNCERTAIN",text,explanation="Nie usłyszano ćwiczonego słowa ${word.es}. Nie zaliczaj; niech uczeń powie je jeszcze raz.")
         }
         return checked
     }
-    fun canAdvance(word:LessonWord?,text:String,checked:Assessment,modelHeard:String = "")=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text) || modelHeardTarget(word,text,modelHeard) || creditableNearMiss(word,text))
+    fun canAdvance(word:LessonWord?,text:String,checked:Assessment,modelHeard:String = "")=word != null && text.isNotBlank() && !needsHelp(text) && !newTopic(text) && checked.verdict == "CORRECT" && (matches(word,text) || soundsLike(word,text) || modelHeardTarget(word,text,modelHeard))
     fun hold(word:LessonWord?)="NIE PRZECHODŹ DO KOLEJNEGO SŁOWA. Nie zaliczono nowej poprawnej odpowiedzi. " +
         (word?.let { "Aktualne zadanie: ${it.es} — ${it.pl}. " } ?: "") +
         "Przy błędzie popraw tę próbę; przy pytaniu lub nie wiem pomóż krótko. Przy braku wypowiedzi czekaj na ucznia. Bez nowego słowa, bez fałszywej pochwały i bez kończenia lekcji."

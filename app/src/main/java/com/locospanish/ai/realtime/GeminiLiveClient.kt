@@ -321,7 +321,20 @@ class GeminiLiveClient(
                 // Buffering alone is not authorization: a completed model turn can still omit the grade.
                 val unassessedTrial=!controlTurn && actualUser!=null && assessedUserId!=actualUser.id
                 val helpWithoutGrade=actualUser!=null && (referenceHelp || LearnerIntent.questionInsteadOfTrial(actualUser.text,target) || WordAttemptPolicy.newTopic(actualUser.text))
-                if(unassessedTrial && (!helpWithoutGrade || SpokenTeachingPolicy.assertsError(answerText))) {
+                val gradeSkippedTwice=unassessedTrial && actualUser!=null && assessmentNudgedFor==actualUser.id
+                val playUngraded=gradeSkippedTwice && (provisionalAudio.isNotEmpty() || streamedBytes>0) && !SpokenTeachingPolicy.assertsError(answerText)
+                if(gradeSkippedTwice && !playUngraded && target!=null) {
+                    // Gemini skipped the grade again: never leave the learner in silence. Repeat the task and listen.
+                    val draft=provisionalAssistantId
+                    if(draft!=null) mutable.update { value -> value.copy(transcript=value.transcript.filterNot { it.id==draft }) }
+                    provisionalAudio.clear();provisionalBytes=0;provisionalAssistantId=null;bufferedTaskRevision=null
+                    answerText="";approvedSpokenScript="";responseTimeout?.cancel()
+                    referenceGate.complete(Unit)
+                    queueWord(target.es,actualUser?.id ?: "start",generation)
+                    mutable.update { it.copy(phase=VoicePhase.LISTENING,message=LessonTurnPolicy.question(target)) }
+                    return@contentBlock
+                }
+                if(unassessedTrial && !playUngraded && (!helpWithoutGrade || SpokenTeachingPolicy.assertsError(answerText))) {
                     val draft=provisionalAssistantId
                     if(draft!=null) mutable.update { value -> value.copy(transcript=value.transcript.filterNot { it.id==draft }) }
                     provisionalAudio.clear();provisionalBytes=0;provisionalAssistantId=null;bufferedTaskRevision=null
