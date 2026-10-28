@@ -472,8 +472,8 @@ class GeminiLiveClient(
                     requestedTopicChange=!review.active && !learnerQuestion && user != null && (intent==DialogueIntent.Kind.TOPIC || com.locospanish.ai.tutor.WordAttemptPolicy.newTopic(user.text))
                     advanceWord=!learnerQuestion && previousAnswer == null && user != null && com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard)
                     if(advanceWord) { acceptedWordUserId=user?.id;lastAcceptedWord=attemptedWord }
-                    // An accepted single word is shown exactly as on the card, whatever the automatic transcript spelled.
-                    if(advanceWord && user!=null && attemptedWord!=null && LessonTurnPolicy.singleWord(attemptedWord.es) && !com.locospanish.ai.tutor.WordAttemptPolicy.directAnswer(attemptedWord,user.text))
+                    // A garbled transcript of an accepted single word shows the card word; a sentence that contains it stays as said.
+                    if(advanceWord && user!=null && attemptedWord!=null && LessonTurnPolicy.singleWord(attemptedWord.es) && !com.locospanish.ai.tutor.WordAttemptPolicy.matches(attemptedWord,user.text) && !com.locospanish.ai.tutor.WordAttemptPolicy.soundsLike(attemptedWord,user.text))
                         mutable.update { value -> value.copy(transcript=value.transcript.map { if(it.id==user.id) it.copy(text=attemptedWord.es) else it }) }
                     assessment = checked
                     // The visible transcript shows what Gemini certainly heard, not the garbled automatic transcript.
