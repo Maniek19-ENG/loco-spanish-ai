@@ -150,6 +150,7 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
     fun mute() = realtime.mute()
     fun lessonAction(action:com.locospanish.ai.tutor.LessonAction) = realtime.action(action)
     fun help(text: String) = realtime.command(text)
+    fun askWhy() = realtime.command("Uczeń pyta: DLACZEGO? Wyjaśnij krótko i konkretnie, dlaczego jego ostatnia odpowiedź była dobra albo zła i jaka jest zasada (rodzajnik, forma, znaczenie). Z sarkazmem i przekleństwem zgodnie z ustawieniami. Nie oceniaj tego pytania jak próby i nie zmieniaj zadania; potem zadaj to samo pytanie co wcześniej.")
     fun preview() {
         if(sampling.value) return
         if(!hasAccess.value || !settings.value.freeTierConfirmed) { notice.value = "Zapisz klucz Gemini i potwierdź Free Tier w Ustawieniach."; return }

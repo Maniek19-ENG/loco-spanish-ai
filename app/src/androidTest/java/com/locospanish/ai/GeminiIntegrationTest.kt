@@ -746,6 +746,8 @@ class GeminiIntegrationTest {
             val body=com.google.gson.JsonParser.parseString(socket.sent.last { it.contains("garbled") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
             assertEquals("CORRECT",body.get("verified_verdict").asString)
             assertTrue(body.get("word_trial_accepted").asBoolean)
+            // The visible transcript shows what Gemini heard, not the garbled text.
+            assertEquals(target,client.state.value.transcript.last { it.role=="user" }.text)
             withTimeout(1000) { while(client.state.value.currentWord==target) delay(5) }
             assertTrue(client.state.value.learning.any { com.locospanish.ai.tutor.AssessmentPolicy.key(it.term)==com.locospanish.ai.tutor.AssessmentPolicy.key(target) })
         }

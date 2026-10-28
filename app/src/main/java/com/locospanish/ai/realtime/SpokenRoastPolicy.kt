@@ -14,7 +14,7 @@ object SpokenRoastPolicy {
     fun primary(s: Settings, planned: String, verdict: String = "ERROR", recent: Collection<String> = emptyList()): String {
         if(!enabled(s) || planned.isBlank()) return ""
         if(verdict != "ERROR" && Regex("wymow|akcent|błęd|bled|źle|zle",RegexOption.IGNORE_CASE).containsMatchIn(planned)) return ""
-        val strong=Regex("kurw|pierdol|jeb|chuj",RegexOption.IGNORE_CASE)
+        val strong=Regex("kurw|pierdol|jeb|chuj|joder|coño|cono\\b|hostia|gilipoll|cabr[oó]n|me cago",RegexOption.IGNORE_CASE)
         if(s.personality.profanity != Profanity.STRONG && strong.containsMatchIn(planned)) return ""
         var result=planned.trim().take(320)
         if(s.personality.profanity == Profanity.STRONG && s.personality.roast >= 80 && !strong.containsMatchIn(result)) {

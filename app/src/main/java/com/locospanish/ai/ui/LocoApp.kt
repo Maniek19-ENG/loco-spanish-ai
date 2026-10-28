@@ -266,14 +266,14 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
 }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun ColumnScope.LiveScreen(seconds: Long, title: String, personality: Personality, vm: LocoViewModel, end: () -> Unit) {
-    LiveConversationScreen(seconds,title,personality,vm.liveUi,vm.lessonDisplay,vm.liveTranscript,vm.audioLevel,vm::editPersonality,vm::mute,vm::retry,vm::lessonAction,end,vm::wordPresented)
+    LiveConversationScreen(seconds,title,personality,vm.liveUi,vm.lessonDisplay,vm.liveTranscript,vm.audioLevel,vm::editPersonality,vm::mute,vm::retry,vm::lessonAction,end,vm::wordPresented,vm::askWhy)
 }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun ColumnScope.LiveConversationScreen(
     seconds:Long,title:String,personality:Personality,
     uiState:kotlinx.coroutines.flow.StateFlow<VoiceState>,lesson:kotlinx.coroutines.flow.StateFlow<LessonDisplay>,
     transcript:kotlinx.coroutines.flow.StateFlow<List<Transcript>>,level:kotlinx.coroutines.flow.StateFlow<Float>,
-    editPersonality:()->Unit,mute:()->Unit,retry:()->Unit,action:(com.locospanish.ai.tutor.LessonAction)->Unit,end:()->Unit,onWordPresented:(String,String)->Unit={_,_->}
+    editPersonality:()->Unit,mute:()->Unit,retry:()->Unit,action:(com.locospanish.ai.tutor.LessonAction)->Unit,end:()->Unit,onWordPresented:(String,String)->Unit={_,_->},askWhy:()->Unit={}
 ) {
     val state by uiState.collectAsStateWithLifecycle()
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -325,6 +325,7 @@ private fun duration(seconds: Long) = "%02d:%02d".format(seconds / 60, seconds %
         LiveAction("Wolniej",state.connected) { action(com.locospanish.ai.tutor.LessonAction.SLOWER) }
         LiveAction("Nie rozumiem",state.connected) { action(com.locospanish.ai.tutor.LessonAction.EXPLAIN) }
         LiveAction("Po polsku",state.connected) { action(com.locospanish.ai.tutor.LessonAction.TRANSLATE) }
+        LiveAction("Dlaczego?",state.connected,askWhy)
         LiveAction(if(state.reviewMode) "Wróć do nauki" else "Odpytaj mnie",state.connected) { action(if(state.reviewMode) com.locospanish.ai.tutor.LessonAction.RESUME else com.locospanish.ai.tutor.LessonAction.REVIEW) }
         LiveAction(if(state.reviewMode) "Pomiń" else "Dalej",state.connected && !state.reviewCompleted) { action(com.locospanish.ai.tutor.LessonAction.NEXT) }
     }

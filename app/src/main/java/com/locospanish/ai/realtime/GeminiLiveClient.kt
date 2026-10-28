@@ -15,8 +15,8 @@ import okhttp3.*
 import okio.ByteString
 import java.util.concurrent.TimeUnit
 
-/** 0.5 s of 24 kHz 16-bit mono audio. */
-private const val STREAM_PREBUFFER_BYTES=24000
+/** 0.8 s of 24 kHz 16-bit mono audio. */
+private const val STREAM_PREBUFFER_BYTES=38400
 
 class GeminiLiveClient(
     context: Context, private val scope: CoroutineScope,
@@ -473,6 +473,10 @@ class GeminiLiveClient(
                     advanceWord=!learnerQuestion && previousAnswer == null && user != null && com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard)
                     if(advanceWord) { acceptedWordUserId=user?.id;lastAcceptedWord=attemptedWord }
                     assessment = checked
+                    // The visible transcript shows what Gemini certainly heard, not the garbled automatic transcript.
+                    val certainHeard=args.str("heard_text").trim().take(300)
+                    if(user!=null && args.str("confidence")=="CERTAIN" && certainHeard.isNotBlank() && AssessmentPolicy.speech(certainHeard)!=AssessmentPolicy.speech(user.text))
+                        mutable.update { value -> value.copy(transcript=value.transcript.map { if(it.id==user.id) it.copy(text=certainHeard) else it }) }
                     val verdict = if(readingSupplement) "CORRECT" else checked.verdict
                     this.verdict = verdict; plannedRoast = if(verdict == args.str("verdict").uppercase() || (verdict == "UNCERTAIN" && args.str("verdict").uppercase() == "CORRECT")) args.str("roast").take(320) else ""
                     if(!readingSupplement) {
