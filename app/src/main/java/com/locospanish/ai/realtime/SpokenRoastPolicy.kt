@@ -103,7 +103,7 @@ object SpokenRoastPolicy {
     /** Per-turn checklist sent with every grade: the system prompt alone was diluted into polite teasing. */
     fun mustHave(s: Settings, said: String, word: String): String {
         if(!enabled(s) || s.personality.profanity != Profanity.STRONG || s.personality.roast < 80) return ""
-        return " OBOWIĄZKOWO w tej ripoście, inaczej jest za słaba, jak dla dzieci: (1) mocne polskie przekleństwo (kurwa, pierdolony, jebany, ja pierdolę) w środku zdania, (2) hiszpańskie przekleństwo albo hiszpańskie słowo wplecione w puentę — np. joder, coño, hostia, gilipollas, cabrón, me cago en…, albo złośliwa gra słów na „${word.take(60)}”, (3) bezpośrednia obelga w ucznia, (4) konkret z tego, co powiedział: „${said.take(80)}”. Dorosły, sprośny roast komika, nie żart z przedszkola. Jedno, dwa zdania."
+        return " OBOWIĄZKOWO w tej ripoście, inaczej jest za słaba, jak dla dzieci: (1) mocne polskie przekleństwo (kurwa, pierdolony, jebany, ja pierdolę) w środku zdania, (2) hiszpański okrzyk jako OSOBNE krótkie zdanie po pauzie na końcu, nie w środku polskiego zdania — np. ¡Joder! ¡Qué gilipollas! ¡Me cago en todo! albo złośliwie „${word.take(60)}”, wymówione czysto po hiszpańsku, (3) bezpośrednia obelga w ucznia, (4) konkret z tego, co powiedział: „${said.take(80)}”. Dorosły, sprośny roast komika, nie żart z przedszkola. Jedno, dwa zdania."
     }
     fun enabled(s: Settings) = !s.previousVersionMode && s.personality.roastMode && s.personality.roast > 0
     fun gentle(text: String) = false
