@@ -9,7 +9,7 @@ class SpokenRoastTest {
     @Test fun uncertaintyGetsHelpWithoutRiposteOrInventedError() {
         val text=com.locospanish.ai.realtime.GeminiProtocol.turnGuidance(Settings(),"UNCERTAIN")
         assertTrue(text.contains("bez riposty"));assertTrue(text.contains("Nie wymyślaj błędu"))
-        assertTrue(text.contains("aktualnym słowie"))
+        assertTrue(text.contains("aktualnym słowie"));assertTrue(text.contains("szyderczo"))
     }
     @Test fun correctTextAnswerNeverGetsInventedPronunciationCriticism() {
         assertEquals("",SpokenRoastPolicy.primary(Settings(),"Twoja wymowa jest fatalna, kurwa.","CORRECT"))

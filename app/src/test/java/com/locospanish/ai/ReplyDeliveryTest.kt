@@ -10,7 +10,7 @@ class ReplyDeliveryTest {
   val error=ReplyDelivery.instruction(Settings(),joke,"ERROR",false,"")
   assertTrue(error.contains(joke));assertTrue(error.contains("DOSŁOWNIE"));assertTrue(error.indexOf(joke)<error.indexOf("POTEM"))
   val correct=ReplyDelivery.instruction(Settings(),joke,"CORRECT",false,"")
-  assertFalse(correct.contains(joke));assertTrue(correct.contains("Bez riposty"))
+  assertFalse(correct.contains(joke));assertTrue(correct.contains("Bez riposty o błędzie"));assertTrue(correct.contains("szyderczo"))
   val help=ReplyDelivery.instruction(Settings(),joke,"UNCERTAIN",true,"")
   assertTrue(help.startsWith("NAJPIERW odpowiedz na rzeczywiste pytanie"))
   assertFalse(help.contains(joke));assertTrue(help.contains("Bez wymuszania powtarzania"))

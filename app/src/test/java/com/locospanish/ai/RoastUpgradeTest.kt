@@ -49,12 +49,12 @@ class RoastUpgradeTest {
     }
     @Test fun onlyConfirmedMistakesGetRipostesAndUncertainAudioGetsHelp() {
         val s = Settings()
-        assertTrue(GeminiProtocol.turnGuidance(s, "CORRECT").contains("BEZ riposty"))
+        assertTrue(GeminiProtocol.turnGuidance(s, "CORRECT").contains("BEZ riposty o błędzie"));assertTrue(GeminiProtocol.turnGuidance(s, "CORRECT").contains("szyderczo"))
         assertTrue(GeminiProtocol.turnGuidance(s, "CORRECT").contains("Nie wymyślaj błędu"))
         assertTrue(GeminiProtocol.turnGuidance(s, "ERROR").contains("poprawkę"))
         assertTrue(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("powtórzenie"))
-        assertTrue(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("bez riposty"))
-        assertTrue(GeminiProtocol.prompt(s, "daily", "").contains("RIPOSTA TYLKO PRZY POTWIERDZONYM BŁĘDZIE"))
+        assertTrue(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("bez riposty"));assertFalse(GeminiProtocol.turnGuidance(s, "UNCERTAIN").contains("poproś"))
+        assertTrue(GeminiProtocol.prompt(s, "daily", "").contains("SZYDERCZY, IRONICZNY TON CAŁY CZAS"))
         assertEquals("", GeminiProtocol.turnGuidance(s.copy(personality = PersonalityEngine.preset(Preset.TEACHER)), "CORRECT"))
         assertTrue(GeminiProtocol.turnGuidance(s.copy(personality = s.personality.copy(profanity = Profanity.OFF)), "ERROR").contains("Bez przekleństw"))
     }
