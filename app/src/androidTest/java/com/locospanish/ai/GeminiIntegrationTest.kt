@@ -367,7 +367,7 @@ class GeminiIntegrationTest {
     }
     /** A long, messy conversation with a scripted Gemini: after every learner turn LOCO must speak again or listen, never stall. */
     @Test fun longMessyConversationNeverGoesSilent()=runBlocking {
-        for(level in listOf(Level.A1,Level.A2,Level.B1)) runClient(settings=Settings(level=level),scenario="hotel",assessmentRetryMs=150,cardFallbackMs=300) { client,socket,audio ->
+        for(level in listOf(Level.A1,Level.A2,Level.B1)) runClient(settings=Settings(level=level),scenario="hotel",assessmentRetryMs=150,cardFallbackMs=300,silenceGuardMs=500) { client,socket,audio ->
             kotlinx.coroutines.coroutineScope {
                 val chunk=android.util.Base64.encodeToString(ByteArray(19200),android.util.Base64.NO_WRAP)
                 fun card()=com.locospanish.ai.tutor.LessonWord(client.state.value.currentWord,client.state.value.currentMeaning)
@@ -384,7 +384,14 @@ class GeminiIntegrationTest {
                         "verdict" to verdict,"heard_text" to heard,"evidence" to heard,"confidence" to "CERTAIN","correction" to if(verdict=="ERROR") card().es else "","explanation" to if(verdict=="ERROR") "Inne słowo." else "",
                         "error_kind" to "VOCABULARY","roast" to "Kurwa, z takim $heard recepcja da ci kuwetę zamiast pokoju.","words" to emptyList<String>()))))).toString())
                 }
-                var lastHeard="";var lastVerdict="CORRECT";var nudgesWithoutTool=0
+                var lastHeard="";var lastVerdict="CORRECT";var nudgesWithoutTool=0;var emptyReplies=0;var cutReplies=0
+                fun answer() {
+                    when {
+                        emptyReplies>0 -> { emptyReplies--;socket.event("{\"serverContent\":{\"turnComplete\":true}}") }
+                        cutReplies>0 -> { cutReplies--;speak("Ja pierdolę, ty",complete=false);socket.event("{\"serverContent\":{\"interrupted\":true}}");socket.event("{\"serverContent\":{\"turnComplete\":true}}") }
+                        else -> speak(reply())
+                    }
+                }
                 var seen=0
                 val responder=launch {
                     while(true) {
@@ -393,8 +400,8 @@ class GeminiIntegrationTest {
                             delay(25)
                             when {
                                 message.contains("TECHNICZNE PONOWIENIE") -> if(nudgesWithoutTool-->0) speak("Kurwa, gadaj dalej, matole.") else grade(lastHeard,lastVerdict)
-                                message.contains("toolResponse") -> if(message.contains("assess_user_turn") || message.contains("soak-")) speak(reply())
-                                message.contains("clientContent") -> speak(reply())
+                                message.contains("toolResponse") -> if(message.contains("assess_user_turn") || message.contains("soak-")) answer()
+                                message.contains("clientContent") -> answer()
                             }
                         }
                         delay(10)
@@ -419,6 +426,12 @@ class GeminiIntegrationTest {
                     turn("grade skipped twice $round") { nudgesWithoutTool=1;lastHeard="eee no sé";lastVerdict="UNCERTAIN";recognized(socket,"eee no sé") }
                     turn("premature draft $round") { val w=card().es;lastHeard=w;lastVerdict="CORRECT";recognized(socket,w);speak("No i co tu",complete=false);delay(30);grade(w,"CORRECT") }
                     turn("question $round") { lastHeard="co to znaczy?";lastVerdict="UNCERTAIN";recognized(socket,"co to znaczy?");delay(30);grade("co to znaczy?","UNCERTAIN") }
+                    // Gemini answers a grade with an empty turn; then its own voice through the speaker cuts the reply.
+                    turn("empty reply $round") { val w=card().es;lastHeard=w;lastVerdict="CORRECT";emptyReplies=1;recognized(socket,w);delay(30);grade(w,"CORRECT") }
+                    turn("echo cut $round") { lastHeard="gato";lastVerdict="ERROR";cutReplies=1;recognized(socket,"gato");delay(30);grade("gato","ERROR");delay(200);val cut=audio.packets
+                        val resumed=withTimeoutOrNull(4000) { while(audio.packets==cut) delay(20);true } ?: false
+                        if(!resumed) Diag.dump().lines().takeLast(80).forEach { android.util.Log.e("LocoDiag",it) }
+                        assertTrue("$level: LOCO stayed silent after its reply was cut",resumed) }
                     turn("other lesson word $round") { lastHeard="mañana";lastVerdict="CORRECT";recognized(socket,"mañana");delay(30);grade("mañana","CORRECT") }
                 }
                 responder.cancel()
@@ -793,11 +806,11 @@ class GeminiIntegrationTest {
         fun open(){ listener.onOpen(this,Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(101).message("test").build()) }
         fun event(json:String){ listener.onMessage(this,json) }
     }
-    private suspend fun runClient(settings: Settings = Settings(), scenario: String = "daily", responseTimeoutMs: Long = 40000, wordAudio: Boolean = false, wordDelayMs:Long = 0, memory:String = "", known:Collection<String> = emptyList(), prepared:MutableList<String>?=null, planner:suspend (String,String,Level,Collection<String>)->List<com.locospanish.ai.tutor.LessonWord> = {_,_,_,_->suspendCancellableCoroutine { }}, taskLimit:Long=10000, assessmentRetryMs:Long=1800,waitForCard:Boolean=false,nativeAudio:Boolean=false,cardFallbackMs:Long=60000, block:suspend (GeminiLiveClient,FakeSocket,FakeAudio)->Unit) {
+    private suspend fun runClient(settings: Settings = Settings(), scenario: String = "daily", responseTimeoutMs: Long = 40000, wordAudio: Boolean = false, wordDelayMs:Long = 0, memory:String = "", known:Collection<String> = emptyList(), prepared:MutableList<String>?=null, planner:suspend (String,String,Level,Collection<String>)->List<com.locospanish.ai.tutor.LessonWord> = {_,_,_,_->suspendCancellableCoroutine { }}, taskLimit:Long=10000, assessmentRetryMs:Long=1800,waitForCard:Boolean=false,nativeAudio:Boolean=false,cardFallbackMs:Long=60000,silenceGuardMs:Long=60000, block:suspend (GeminiLiveClient,FakeSocket,FakeAudio)->Unit) {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
         val socket=FakeSocket(); val audio=FakeAudio()
-        val client=GeminiLiveClient(context,scope,http=socket,audioFactory={audio}, responseTimeoutMs=responseTimeoutMs,wordPlanner=planner,taskTimeoutMs=taskLimit,wordCache=null, assessmentRetryMs=assessmentRetryMs,waitForLessonCard=waitForCard,cardFallbackMs=cardFallbackMs, wordSpeakerFactory={ _,_ -> object: SupplementSpeaker { override suspend fun prepare(text:String) { prepared?.add(text) }; override suspend fun synthesize(text:String):ByteArray { if(!wordAudio) error("Wzorzec niedostępny w teście");delay(wordDelayMs);audio.words.add(text);return ByteArray(4) };override fun close() {} } }, supplementFactory = { object: SupplementSpeaker {
+        val client=GeminiLiveClient(context,scope,http=socket,audioFactory={audio}, responseTimeoutMs=responseTimeoutMs,wordPlanner=planner,taskTimeoutMs=taskLimit,wordCache=null, assessmentRetryMs=assessmentRetryMs,waitForLessonCard=waitForCard,cardFallbackMs=cardFallbackMs,silenceGuardMs=silenceGuardMs, wordSpeakerFactory={ _,_ -> object: SupplementSpeaker { override suspend fun prepare(text:String) { prepared?.add(text) }; override suspend fun synthesize(text:String):ByteArray { if(!wordAudio) error("Wzorzec niedostępny w teście");delay(wordDelayMs);audio.words.add(text);return ByteArray(4) };override fun close() {} } }, supplementFactory = { object: SupplementSpeaker {
             override suspend fun synthesize(text: String): ByteArray { if(!nativeAudio) error("No Polish voice installed");audio.nativeTexts.add(text);return ByteArray(8) { 2 } }
             override fun close() {}
         } })

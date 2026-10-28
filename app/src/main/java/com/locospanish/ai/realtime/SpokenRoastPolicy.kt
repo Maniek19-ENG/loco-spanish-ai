@@ -100,6 +100,11 @@ object SpokenRoastPolicy {
             "Zmień pomysł, metaforę, rytm i początek względem recent_roasts_to_avoid. Wbij uczniowi bezpośrednią, obraźliwą obelgę (np. matole, pajacu, cymbale, gilipollas, capullo), inną niż w recent_roasts_to_avoid, z dwuznacznym podtekstem. $strength " +
             "Przy potwierdzonym ERROR i wysokim roaście krótko sparodiuj absurdalny sens KONKRETNEJ wpadki: udawany dialog albo teatralna reakcja postaci, z mocnym przekleństwem gdy STRONG. Oceniana wpadka to attempted_word i learner; next_word jest dopiero następnym zadaniem. Parodia ma mieć nową puentę do tej wypowiedzi, nie stałą kwestię. W audio odegraj kpinę intonacją i teatralnym oburzeniem; okazjonalny krótki półśmiech może uzupełnić puentę. Nie śmiej się obowiązkowo w każdej odpowiedzi i nie zastępuj słów śmiechem. Nie ucz błędnej wymowy; po polskim żarcie natychmiast prawdziwa poprawka i wskazówka. Przy niskim roaście zmniejsz ostrość zgodnie z suwakiem. Przy CORRECT nie wymyślaj błędu językowego, a przy UNCERTAIN żartuj z sytuacji, nie z rzekomej złej wymowy. Wypowiedz ripostę i naukę w tej samej odpowiedzi; bez dodatkowej tury i bez odczytywania instrukcji."
     }
+    /** Per-turn checklist sent with every grade: the system prompt alone was diluted into polite teasing. */
+    fun mustHave(s: Settings, said: String, word: String): String {
+        if(!enabled(s) || s.personality.profanity != Profanity.STRONG || s.personality.roast < 80) return ""
+        return " OBOWIĄZKOWO w tej ripoście, inaczej jest za słaba, jak dla dzieci: (1) mocne polskie przekleństwo (kurwa, pierdolony, jebany, ja pierdolę) w środku zdania, (2) hiszpańskie przekleństwo albo hiszpańskie słowo wplecione w puentę — np. joder, coño, hostia, gilipollas, cabrón, me cago en…, albo złośliwa gra słów na „${word.take(60)}”, (3) bezpośrednia obelga w ucznia, (4) konkret z tego, co powiedział: „${said.take(80)}”. Dorosły, sprośny roast komika, nie żart z przedszkola. Jedno, dwa zdania."
+    }
     fun enabled(s: Settings) = !s.previousVersionMode && s.personality.roastMode && s.personality.roast > 0
     fun gentle(text: String) = false
     // Only delivery of the actual model-generated punchline counts, never a canned nickname.

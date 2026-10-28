@@ -31,8 +31,13 @@ class GeminiLiveClient(
     private val wordCache:LessonWordCache?=LessonWordCache(context),
     private val assessmentRetryMs:Long=1800,
     private val waitForLessonCard:Boolean=false,
-    private val cardFallbackMs:Long=4000
+    private val cardFallbackMs:Long=4000,
+    private val silenceGuardMs:Long=2500
 ) {
+    private var silenceJob: Job? = null
+    private var silenceNudgedFor: String? = null
+    @Volatile private var lastAudioAt=0L
+    @Volatile private var lastUserInputAt=0L
     private var cardFallbackJob: Job? = null
     private val mutable = MutableStateFlow(VoiceState())
     val state = mutable.asStateFlow()
@@ -261,6 +266,7 @@ class GeminiLiveClient(
                 }
             }
             if(content.has("inputTranscription")) {
+                lastUserInputAt=android.os.SystemClock.elapsedRealtime()
                 replyFinalized=false;roastRequested=false;dialogueReplyOnly=false
                 approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false
                 alignmentRetries=0
@@ -281,6 +287,7 @@ class GeminiLiveClient(
                 supplementJob?.cancel()
             }
             val parts = content.getAsJsonObject("modelTurn")?.getAsJsonArray("parts")
+            if(parts!=null) lastAudioAt=android.os.SystemClock.elapsedRealtime()
             parts?.forEach { part -> part.asJsonObject.getAsJsonObject("inlineData")?.let { data ->
                 if(((!state.value.taskPending && (activeLessonWord!=null || review.active)) || dialogueReplyOnly || LearnerIntent.questionInsteadOfTrial(state.value.transcript.lastOrNull { it.role=="user" }?.text.orEmpty(),activeLessonWord)) && !content.flag("interrupted") && data.str("mimeType").startsWith("audio/pcm")) {
                     val pcm = Base64.decode(data.str("data"),Base64.DEFAULT)
@@ -319,7 +326,7 @@ class GeminiLiveClient(
                 }
             }
             if(content.has("inputTranscription") && state.value.phase != VoicePhase.SPEAKING) { mutable.update { it.copy(phase = VoicePhase.THINKING) }; awaitResponse() }
-            if(content.flag("interrupted")) { awaitingTurnComplete=false;staleTurnComplete=false }
+            if(content.flag("interrupted")) { awaitingTurnComplete=false;staleTurnComplete=false;guardSilence("interrupted",generation) }
             val staleEnd=content.flag("turnComplete") && !content.flag("generationComplete") && staleTurnComplete
             if(content.flag("turnComplete")) { staleTurnComplete=false;awaitingTurnComplete=false } else if(content.flag("generationComplete")) awaitingTurnComplete=true
             if(staleEnd) Diag.log("STALE turnComplete of the previous turn ignored")
@@ -419,6 +426,8 @@ class GeminiLiveClient(
                 pendingLessonWord?.let { if(AssessmentPolicy.contains(answerText,it)) taughtVocabulary.add(it) }; pendingLessonWord = null
                 TopicLessons.get(scenario).words.filter { TopicLessons.matches(answerText,it) }.forEach { taughtVocabulary.add(it.es) }
                 if(state.value.phase == VoicePhase.THINKING && activeLessonWord!=null && (answerText.isNotBlank() || spokenWordTurn!=null)) mutable.update { it.copy(phase = VoicePhase.LISTENING) }
+                // A graded learner turn answered with nothing audible would leave LOCO silent.
+                if(!hadSpeech && answerText.isBlank() && actualUser!=null && assessedUserId==actualUser.id) guardSilence("empty",generation)
                 // Docinka i nauka należą do tej samej odpowiedzi. Nie uruchamiaj osobnej tury.
                 if(answerText.isNotBlank()) { recentRoasts.addLast(answerText.take(900));while(recentRoasts.size>12) recentRoasts.removeFirst() }
                 answerText = ""; plannedRoast = ""; verdict = "CORRECT"
@@ -566,7 +575,7 @@ class GeminiLiveClient(
                     val currentSpoken=spokenWordTurn?.takeIf { referenceWasPlayed(it.second) }?.second
                     response.addProperty("word_audio_played",currentSpoken != null)
                     response.addProperty("word_audio_pending",saved && currentSpoken == null)
-                    response.addProperty("delivery_instruction",if(currentSpoken != null) "W tej lekcji aplikacja wypowiedziała już $currentSpoken. Nie wracaj do starej propozycji z args. Po polsku objaśnij właściwe słowo i daj proste zadanie, bez powtarzania hiszpańskiego audio." else if(teachingWord == null) "Propozycja jest znana lub nie jest pojedynczym słowem. Wybierz INNE pojedyncze słowo z aktualnego tematu i wywołaj teach_word. Nie kończ lekcji i nie czytaj starego słowa ani zdania." else if(saved) "Aplikacja przygotowuje hiszpańskie słowo i odtworzy je po komentarzu. Mów teraz tylko po polsku: świeża docinka zgodna z ustawieniami, polskie znaczenie i jedno łatwe zadanie. Nie czytaj hiszpańskiego słowa jako osobnego wzorca; możesz je wpleść poprawnie w ostrą ripostę. Nie kończ lekcji." else "Wzorzec audio niedostępny, podaj spokojnie pojedyncze słowo z rodzimą hiszpańską wymową i znaczenie po polsku, potem proste zadanie. Nie kończ lekcji.")
+                    response.addProperty("delivery_instruction",if(currentSpoken != null) "W tej lekcji aplikacja wypowiedziała już $currentSpoken. Nie wracaj do starej propozycji z args. Po polsku objaśnij właściwe słowo i daj proste zadanie, bez powtarzania hiszpańskiego audio." else if(teachingWord == null) "Propozycja jest znana lub nie jest pojedynczym słowem. Wybierz INNE pojedyncze słowo z aktualnego tematu i wywołaj teach_word. Nie kończ lekcji i nie czytaj starego słowa ani zdania." else if(saved) "Aplikacja przygotowuje hiszpańskie słowo i odtworzy je po komentarzu. Mów teraz po polsku: świeża, wulgarna riposta zgodna z ustawieniami, z wplecionym hiszpańskim słowem lub przekleństwem, polskie znaczenie i jedno łatwe zadanie. Nie czytaj hiszpańskiego słowa jako osobnego wzorca; możesz je wpleść poprawnie w ostrą ripostę. Nie kończ lekcji." else "Wzorzec audio niedostępny, podaj spokojnie pojedyncze słowo z rodzimą hiszpańską wymową i znaczenie po polsku, potem proste zadanie. Nie kończ lekcji.")
                 }
                 if(fresh && name == "assess_user_turn" && !readingSupplement) {
                     assessment?.let { checked -> AssessmentPolicy.feedback(checked,user != null,settings.autoCorrection && settings.personality.correction > 0).entrySet().forEach { (key,value) -> response.add(key,value) } }
@@ -610,7 +619,7 @@ class GeminiLiveClient(
                     response.add("recent_roasts_to_avoid",com.google.gson.Gson().toJsonTree(previousRoasts.takeLast(8).map { it.take(220) }))
                     response.addProperty("roast_needs_new_idea",rejectedRoast)
                     response.addProperty("creative_roast_instruction",SpokenRoastPolicy.freshInstruction(settings,rejectedRoast))
-                    response.addProperty("roast_brief",SpokenRoastPolicy.creativeBrief(roastIndex++,previousRoasts))
+                    response.addProperty("roast_brief",SpokenRoastPolicy.creativeBrief(roastIndex++,previousRoasts)+SpokenRoastPolicy.mustHave(settings,user?.text.orEmpty(),attemptedWord?.es.orEmpty()))
                     response.add("roast_context",GeminiProtocol.json("learner" to user?.text.orEmpty().take(400),"attempted_word" to attemptedWord?.es.orEmpty(),"attempted_meaning" to attemptedWord?.pl.orEmpty(),"verified_correction" to assessment?.correction.orEmpty(),"next_word" to next?.es.orEmpty(),"next_meaning" to next?.pl.orEmpty(),"verified_verdict" to assessment?.verdict.orEmpty()))
                     response.addProperty("roast_delivery", "Jeśli planned_roast nie jest puste, wypowiedz je dosłownie przed nowym słowem, z szyderczą intonacją. Nie zastępuj go grzeczną pochwałą ani łagodniejszym tekstem. To ta sama odpowiedź audio, bez dodatkowej tury. Przy potwierdzonym błędzie i włączonej korekcie możesz krótko teatralnie podnieść głos w polskiej docince; hiszpańska poprawka pozostaje spokojna. Przy CORRECT żart dotyczy sytuacji, nie jakości wymowy, akcentu lub fikcyjnego błędu. Potem od razu nauka i konkretne zadanie.")
                     if(requestedLearningTopic.isBlank()) response.addProperty("scenario_instruction","Pozostań w temacie ${Scenarios.get(scenario).title}; nowe słowa i pytania dopasuj do niego.")
@@ -857,6 +866,28 @@ class GeminiLiveClient(
         fetchMaterial(generation)
         if(reserve==null) { requestTaskFromLive();armCardFallback(generation) }
     }
+    /** LOCO went quiet (an empty reply, or its own voice cut it off) and nobody speaks: ask once to finish, then repeat the task and listen. */
+    private fun guardSilence(reason:String,generation:Int) {
+        val word=activeLessonWord ?: return
+        val owner=state.value.transcript.lastOrNull { it.role=="user" }?.id ?: "start"
+        val since=android.os.SystemClock.elapsedRealtime()
+        silenceJob?.cancel()
+        silenceJob=scope.launch {
+            delay(silenceGuardMs)
+            // A real learner interruption comes with their speech; only a cut without it is silence.
+            if(epoch!=generation || !state.value.connected || lastAudioAt>since || lastUserInputAt>since-if(reason=="interrupted") 3000 else 0 || activeLessonWord!=word) return@launch
+            val key="$owner:$reason"
+            if(silenceNudgedFor!=key) {
+                silenceNudgedFor=key;Diag.log("SILENCE $reason -> ask Gemini to finish")
+                command("Twoja wypowiedź urwała się albo była pusta, a uczeń nic nie powiedział. Powiedz TERAZ głosem krótką ostrą ripostę i zadanie. "+LessonSpeechContract.instruction(word),interruptAudio=false)
+            } else {
+                Diag.log("SILENCE $reason again -> repeat task and listen")
+                referenceGate.complete(Unit)
+                queueWord(word.es,owner,generation)
+                mutable.update { it.copy(phase=VoicePhase.LISTENING,message=LessonTurnPolicy.question(word)) }
+            }
+        }
+    }
     /** The scene is used up and neither the planner nor Gemini delivered a card in time: take one from the level bank instead of staying silent. */
     private fun armCardFallback(generation:Int) {
         cardFallbackJob?.cancel()
@@ -901,7 +932,7 @@ class GeminiLiveClient(
     private fun deliverTask(next:LessonWord,generation:Int) {
         setWord(next)
         if(state.value.connected) {
-            command("Aktualne zadanie: ${next.es} — ${next.pl}. "+(if(wordSpeaker!=null) "Hiszpański wzorzec odtworzy aplikacja osobno. Mów teraz wyłącznie po polsku: świeża docinka zgodna z ustawieniami, znaczenie i pytanie. " else "Ucz wyłącznie tego hasła i podaj poprawny hiszpański wzorzec. ")+LessonTurnPolicy.question(next),interruptAudio=true)
+            command("Aktualne zadanie: ${next.es} — ${next.pl}. "+(if(wordSpeaker!=null) "Hiszpański wzorzec odtworzy aplikacja osobno. Mów teraz po polsku: świeża, wulgarna riposta zgodna z ustawieniami, z wplecionym hiszpańskim słowem lub przekleństwem, znaczenie i pytanie. " else "Ucz wyłącznie tego hasła i podaj poprawny hiszpański wzorzec. ")+LessonTurnPolicy.question(next),interruptAudio=true)
             if(openingPromptPending) referenceGate.complete(Unit)
             queueWord(next.es,state.value.transcript.lastOrNull { it.role=="user" }?.id ?: "start",generation)
         }
@@ -999,7 +1030,7 @@ class GeminiLiveClient(
     }
     private fun fail(message: String) { Diag.log("FAIL $message")
  close(); mutable.update { it.copy(phase = VoicePhase.ERROR,connected = false,taskPending=false,message = message) } }
-    private fun close() { cardFallbackJob?.cancel();cardFallbackJob=null;nativeReply?.cancel();nativeReply=null;nativeReplyOwner=null;nativeReplyScript="";riposteLaughter.reset();liveTaskRequest="";materialRetryAt=0L;assessmentWatchdog?.cancel();assessmentWatchdog=null;assessmentNudgedFor=null;referenceRevision=-1L;helpAttempts=0;lastHelpOwner=null;dialogueReplyOnly=false;roastRequested=false;roastWord=null;roastHeard="";openingPromptPending=true;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false; helpReferenceJob?.cancel();helpReferenceJob=null;helpReferenceTurn=null;failedHelpReferenceTurn=null;taskJob?.cancel();taskJob=null;taskKey="";prefetchJob?.cancel();prefetchJob=null;prefetchWord=null;incomingJob?.cancel();incomingJob=null;incoming?.close();incoming=null;mutableAudioLevel.value=0f; epoch++; wordJob?.cancel();wordJob=null;queuedWordTurn=null;referenceGate.cancel();referenceGate=CompletableDeferred();referenceOwner=null; deliveringTool=false; forceWordReplay=false; wordSpeaker?.close(); wordSpeaker=null; spokenWordTurn=null; activeLessonWord=null; skipWordRequested=false; lastPresentedWord=null; acceptedWordUserId=null;lastAcceptedWord=null; acceptedWordResponses.clear(); provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; supplementJob?.cancel(); supplementJob = null; roastSpeech?.let { runCatching { it.close() } }; roastSpeech = null; readingSupplement = false; answerText = ""; plannedRoast = ""; verdict = "CORRECT"; timeout?.cancel(); timeout = null; responseTimeout?.cancel(); responseTimeout = null; socket?.cancel(); socket = null; runCatching { audio?.close() }; audio = null;presentedAudio=null }
+    private fun close() { cardFallbackJob?.cancel();silenceJob?.cancel();silenceJob=null;cardFallbackJob=null;nativeReply?.cancel();nativeReply=null;nativeReplyOwner=null;nativeReplyScript="";riposteLaughter.reset();liveTaskRequest="";materialRetryAt=0L;assessmentWatchdog?.cancel();assessmentWatchdog=null;assessmentNudgedFor=null;referenceRevision=-1L;helpAttempts=0;lastHelpOwner=null;dialogueReplyOnly=false;roastRequested=false;roastWord=null;roastHeard="";openingPromptPending=true;replyFinalized=false;approvedSpokenScript="";streamedBytes=0;streamDeviation=false;streamHalted=false;roastGateOpen=false; helpReferenceJob?.cancel();helpReferenceJob=null;helpReferenceTurn=null;failedHelpReferenceTurn=null;taskJob?.cancel();taskJob=null;taskKey="";prefetchJob?.cancel();prefetchJob=null;prefetchWord=null;incomingJob?.cancel();incomingJob=null;incoming?.close();incoming=null;mutableAudioLevel.value=0f; epoch++; wordJob?.cancel();wordJob=null;queuedWordTurn=null;referenceGate.cancel();referenceGate=CompletableDeferred();referenceOwner=null; deliveringTool=false; forceWordReplay=false; wordSpeaker?.close(); wordSpeaker=null; spokenWordTurn=null; activeLessonWord=null; skipWordRequested=false; lastPresentedWord=null; acceptedWordUserId=null;lastAcceptedWord=null; acceptedWordResponses.clear(); provisionalAudio.clear(); provisionalBytes = 0; provisionalAssistantId = null; supplementJob?.cancel(); supplementJob = null; roastSpeech?.let { runCatching { it.close() } }; roastSpeech = null; readingSupplement = false; answerText = ""; plannedRoast = ""; verdict = "CORRECT"; timeout?.cancel(); timeout = null; responseTimeout?.cancel(); responseTimeout = null; socket?.cancel(); socket = null; runCatching { audio?.close() }; audio = null;presentedAudio=null }
     fun stop() { close(); mutable.update { it.copy(phase = VoicePhase.IDLE,connected = false,muted = false,message = "Rozmowa zakończona.") } }
 }
 

@@ -43,7 +43,7 @@ class ReplyDeliveryTest {
  }
  @Test fun riposteMayUseTheSpanishWordButReviewNeverRevealsIt() {
   val prompt=com.locospanish.ai.realtime.GeminiProtocol.prompt(Settings(),"hotel","")
-  assertTrue(prompt.contains("MOŻESZ wpleść w ripostę"));assertTrue(prompt.contains("W odpytywaniu nigdy nie zdradzaj odpowiedzi"))
+  assertTrue(prompt.contains("W KAŻDĄ ripostę WPLEĆ hiszpańskie słowo"));assertTrue(prompt.contains("W odpytywaniu nigdy nie zdradzaj odpowiedzi"))
   assertTrue(prompt.contains("joder"));assertTrue(prompt.contains("MÓW WYRAŹNIE"))
  }
 }
