@@ -15,6 +15,9 @@ import okhttp3.*
 import okio.ByteString
 import java.util.concurrent.TimeUnit
 
+/** 0.5 s of 24 kHz 16-bit mono audio. */
+private const val STREAM_PREBUFFER_BYTES=24000
+
 class GeminiLiveClient(
     context: Context, private val scope: CoroutineScope,
     private val http: WebSocket.Factory = OkHttpClient.Builder().connectTimeout(20,TimeUnit.SECONDS).readTimeout(0,TimeUnit.SECONDS).pingInterval(20,TimeUnit.SECONDS).build(),
@@ -283,6 +286,13 @@ class GeminiLiveClient(
                         if(provisionalBytes + pcm.size > 1024 * 1024) { fail("Gemini nie zakończyło oceny wypowiedzi. Spróbuj ponownie."); return }
                         if(provisionalAudio.isEmpty() && streamedBytes==0) bufferedTaskRevision=lessonRevision
                         provisionalAudio.add(pcm); provisionalBytes += pcm.size
+                    } else if(streamedBytes==0 && provisionalBytes+pcm.size<STREAM_PREBUFFER_BYTES) {
+                        // Collect ~0.5 s before the first sound, so network jitter cannot chop the start of a streamed reply.
+                        if(provisionalAudio.isEmpty()) bufferedTaskRevision=lessonRevision
+                        provisionalAudio.add(pcm); provisionalBytes += pcm.size
+                    } else if(streamedBytes==0 && provisionalAudio.isNotEmpty()) {
+                        provisionalAudio.add(pcm); provisionalBytes += pcm.size
+                        val size=provisionalBytes;flushProvisionalAudio();streamedBytes+=size
                     } else if(audio?.enqueue(pcm) != true) fail("Odtwarzanie audio nie nadąża. Spróbuj ponownie.")
                     else { if(streamedBytes==0) bufferedTaskRevision=lessonRevision;streamedBytes+=pcm.size;openingPromptPending=false;responseTimeout?.cancel() }
                 }
@@ -327,7 +337,7 @@ class GeminiLiveClient(
                 val falseRejection=(correctTrial && SpokenTeachingPolicy.rejectsCorrectAnswer(answerText)) ||
                     ((referenceHelp || uncertainTrial) && SpokenTeachingPolicy.assertsError(answerText))
                 // A reply already heard is not regenerated for style alone; that would only add another turn.
-                var roastIssue=if(roastRequested && !referenceHelp && !roastIsHelp && alignmentRetries==0 && streamedBytes==0) SpokenRoastPolicy.replyIssue(taskSettings,answerText,plannedRoast,verdict,recentRoasts,roastHeard,roastWord) else ""
+                var roastIssue=if(roastRequested && verdict=="ERROR" && !referenceHelp && !roastIsHelp && alignmentRetries==0 && streamedBytes==0) SpokenRoastPolicy.replyIssue(taskSettings,answerText,plannedRoast,verdict,recentRoasts,roastHeard,roastWord) else ""
                 val emptyJoke=!taskSettings.previousVersionMode && SpokenTeachingPolicy.onlyLaughter(answerText)
                 val referenceProvided=target!=null && (referenceWasPlayed(target.es) || (actualUser!=null && queuedWordTurn==(actualUser.id to target.es)))
                 val missingHelp=referenceHelp && target!=null && answerText.isNotBlank() &&
@@ -561,7 +571,7 @@ class GeminiLiveClient(
                         else SpokenRoastPolicy.contextualPrimary(settings,plannedRoast,assessment?.verdict ?: "UNCERTAIN",previousRoasts,user?.text.orEmpty(),attemptedWord)
                     val rejectedRoast=plannedRoast.isNotBlank() && freshRoast.isBlank()
                     if(rejectedRoast) { recentRoasts.addLast(plannedRoast.take(320));while(recentRoasts.size>12) recentRoasts.removeFirst() }
-                    plannedRoast=freshRoast
+                    plannedRoast=if(assessment?.verdict=="ERROR") freshRoast else ""
                     response.addProperty("planned_roast",plannedRoast)
                     response.add("recent_roasts_to_avoid",com.google.gson.Gson().toJsonTree(previousRoasts.takeLast(8).map { it.take(220) }))
                     response.addProperty("roast_needs_new_idea",rejectedRoast)
@@ -620,7 +630,7 @@ class GeminiLiveClient(
                 if(name in setOf("assess_user_turn","teach_word")) {
                     val spokenVerdict=assessment?.verdict ?: if(user!=null && assessedUserId==user.id) this.verdict else "UNCERTAIN"
                     if(!response.has("roast_context")) response.add("roast_context",GeminiProtocol.json("learner" to user?.text.orEmpty().take(240),"word" to activeLessonWord?.es.orEmpty(),"meaning" to activeLessonWord?.pl.orEmpty(),"verified_verdict" to spokenVerdict))
-                    if(!response.has("planned_roast")) response.addProperty("planned_roast",SpokenRoastPolicy.contextualPrimary(settings,plannedRoast,spokenVerdict,recentRoasts,user?.text.orEmpty(),attemptedWord))
+                    if(!response.has("planned_roast")) response.addProperty("planned_roast",if(spokenVerdict=="ERROR") SpokenRoastPolicy.contextualPrimary(settings,plannedRoast,spokenVerdict,recentRoasts,user?.text.orEmpty(),attemptedWord) else "")
                     if(!response.has("recent_roasts_to_avoid")) response.add("recent_roasts_to_avoid",com.google.gson.Gson().toJsonTree(recentRoasts.toList().takeLast(8).map { it.take(220) }))
                     response.addProperty("delivery_instruction",ReplyDelivery.instruction(settings,response.str("planned_roast"),spokenVerdict,helpTurn,if(review.active) review.instruction() else ""))
                 }
@@ -681,7 +691,8 @@ class GeminiLiveClient(
         }
     }
     /** Only a reply that must carry a strong riposte waits, and only until the riposte itself is heard in the draft. */
-    private fun holdForRoast():Boolean = !roastGateOpen && roastRequested && !roastIsHelp && alignmentRetries==0 &&
+    // A correct answer is answered at once; only a confirmed mistake waits for its riposte.
+    private fun holdForRoast():Boolean = !roastGateOpen && roastRequested && verdict=="ERROR" && !roastIsHelp && alignmentRetries==0 &&
         taskSettings.personality.roast>=80 && activeLessonWord!=null && !currentWordHelpRequested()
     private fun roastHeardInDraft():Boolean {
         val draft=answerText.trim()

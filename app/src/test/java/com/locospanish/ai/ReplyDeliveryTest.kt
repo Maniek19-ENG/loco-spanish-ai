@@ -5,17 +5,15 @@ import com.locospanish.ai.tutor.*
 import org.junit.Assert.*
 import org.junit.Test
 class ReplyDeliveryTest {
- @Test fun literalRoastPrecedesExerciseButHelpIsAnsweredBeforeTheRoast() {
+ @Test fun ripostePrecedesTheCorrectionOnlyForAConfirmedMistake() {
   val joke="Kurwa, recepcja wynajmie ci półkę na ręczniki zamiast pokoju."
-  for(help in listOf(false,true)) {
-   val text=ReplyDelivery.instruction(Settings(),joke,"CORRECT",help,"")
-   assertTrue(text.contains(joke));assertTrue(text.contains("DOSŁOWNIE"))
-   if(help) {
-    assertTrue(text.startsWith("NAJPIERW odpowiedz na rzeczywiste pytanie"))
-    assertTrue(text.indexOf("help_answer")<text.indexOf(joke))
-    assertTrue(text.contains("Bez wymuszania powtarzania"))
-   } else assertTrue(text.indexOf(joke)<text.indexOf("POTEM"))
-  }
+  val error=ReplyDelivery.instruction(Settings(),joke,"ERROR",false,"")
+  assertTrue(error.contains(joke));assertTrue(error.contains("DOSŁOWNIE"));assertTrue(error.indexOf(joke)<error.indexOf("POTEM"))
+  val correct=ReplyDelivery.instruction(Settings(),joke,"CORRECT",false,"")
+  assertFalse(correct.contains(joke));assertTrue(correct.contains("Bez riposty"))
+  val help=ReplyDelivery.instruction(Settings(),joke,"UNCERTAIN",true,"")
+  assertTrue(help.startsWith("NAJPIERW odpowiedz na rzeczywiste pytanie"))
+  assertFalse(help.contains(joke));assertTrue(help.contains("Bez wymuszania powtarzania"))
  }
  @Test fun reviewKeepsRoastWithoutGivingAwayAnswer() {
   val q=ReviewSession();q.start(listOf(LessonWord("llave","klucz")),null)
@@ -28,7 +26,7 @@ class ReplyDeliveryTest {
   assertFalse(ReplyDelivery.instruction(off,"","UNCERTAIN",true,"").contains("POTEM dodaj świeżą"))
   assertTrue(ReplyDelivery.instruction(off,"","UNCERTAIN",true,"").contains("Bez docinki"))
   val light=Settings(personality=Settings().personality.copy(profanity=Profanity.LIGHT))
-  assertTrue(ReplyDelivery.instruction(light,"","CORRECT",false,"").contains("Tylko lekkie przekleństwa"))
+  assertTrue(ReplyDelivery.instruction(light,"","ERROR",false,"").contains("Tylko lekkie przekleństwa"))
  }
  @Test fun a1EndOfSpeechWaitIsShorterWithoutChangingConversationLevel() {
   fun silence(level:Level)=GeminiProtocol.setup(Settings(level=level),"hotel","").getAsJsonObject("setup").getAsJsonObject("realtimeInputConfig").getAsJsonObject("automaticActivityDetection").get("silenceDurationMs").asInt

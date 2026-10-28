@@ -29,4 +29,10 @@ class LessonSpeechContractTest {
   assertTrue(text.contains("la habitación — pokój"))
   assertTrue(text.contains(LessonTurnPolicy.question(room)))
  }
+ @org.junit.Test fun askingForAnotherArticleThanTheCardIsAMismatch() {
+  val night=com.locospanish.ai.tutor.LessonWord("una noche","jedna noc")
+  org.junit.Assert.assertTrue(com.locospanish.ai.tutor.LessonSpeechContract.mismatch("Kurwa, recepcja zasnęła. Powiedz la noche.",night))
+  org.junit.Assert.assertFalse(com.locospanish.ai.tutor.LessonSpeechContract.mismatch("Kurwa, recepcja zasnęła. Powiedz una noche.",night))
+  org.junit.Assert.assertFalse(com.locospanish.ai.tutor.LessonSpeechContract.mismatch("Jak powiesz po hiszpańsku „jedna noc”?",night))
+ }
 }

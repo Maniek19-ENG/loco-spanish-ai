@@ -510,7 +510,7 @@ class GeminiIntegrationTest {
             assertTrue(client.state.value.learning.none { it.kind=="known_word" })
         }
     }
-    @Test fun correctFeedbackWaitsForValidationOfTheCompleteReply()=runBlocking {
+    @Test fun correctAnswerIsAnsweredWithoutWaitingForTheWholeReply()=runBlocking {
         runClient(scenario="hotel") { client,socket,audio ->
             socket.event("{\"setupComplete\":{}}")
             delay(60);recognized(socket,"reserva")
@@ -518,13 +518,15 @@ class GeminiIntegrationTest {
             socket.event(GeminiProtocol.json("toolCall" to GeminiProtocol.json("functionCalls" to listOf(GeminiProtocol.json("id" to "early-audio","name" to "assess_user_turn","args" to GeminiProtocol.json("verdict" to "CORRECT","heard_text" to "reserva","confidence" to "CERTAIN","roast" to joke,"words" to emptyList<String>()))))).toString())
             withTimeout(2000) { while(socket.sent.none { it.contains("early-audio") && it.contains("toolResponse") }) delay(5) }
             val body=com.google.gson.JsonParser.parseString(socket.sent.last()).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
-            val script=body.get("spoken_script").asString
+            // A correct answer gets no riposte at all.
+            assertEquals("",body.get("planned_roast").asString);assertFalse(body.has("spoken_script"))
             fun emitAudio(text:String,done:Boolean)=socket.event(GeminiProtocol.json("serverContent" to GeminiProtocol.json("outputTranscription" to GeminiProtocol.json("text" to text),"modelTurn" to GeminiProtocol.json("parts" to listOf(GeminiProtocol.json("inlineData" to GeminiProtocol.json("mimeType" to "audio/pcm;rate=24000","data" to "AAAAAA==")))),"turnComplete" to done)).toString())
-            emitAudio("Kurwa, twoja rezerwacja właśnie",false)
+            emitAudio("Dobrze.",false)
             delay(60)
+            // Under 0.5 s of audio is collected before the first sound instead of being played in fragments.
             assertEquals(0,audio.packets)
             val interrupts=audio.interrupts
-            emitAudio(script+" No to jedziemy.",true);delay(70)
+            emitAudio(" Jak powiesz po hiszpańsku „pokój”?",true);delay(70)
             assertEquals(listOf(8),audio.packetSizes);assertEquals(interrupts,audio.interrupts)
             assertEquals("la habitación",client.state.value.currentWord)
         }
