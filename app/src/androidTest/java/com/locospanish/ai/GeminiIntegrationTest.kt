@@ -369,6 +369,32 @@ class GeminiIntegrationTest {
             assertTrue(client.state.value.learning.none { it.kind=="known_word" && com.locospanish.ai.tutor.AssessmentPolicy.key(it.term)=="reserva" })
         }
     }
+    /** Real session: "beber" transcribed as "deber"/"Bargteheide"; a second listen of the recorded answer credits it. */
+    @Test fun secondListenCreditsARightAnswerTheTranscriberGarbled()=runBlocking {
+        var asked:Pair<Int,String>?=null
+        runClient(scenario="hotel",spokenCheck={ _,pcm,word -> asked=pcm.size to word.es;true to word.es }) { client,socket,audio ->
+            socket.event("{\"setupComplete\":{}}");delay(60)
+            val card=client.state.value.currentWord
+            socket.event("{\"serverContent\":{\"turnComplete\":true}}")
+            recognized(socket,"Bargteheide")
+            repeat(10) { audio.input?.invoke(ByteArray(3200)) }
+            assessment(socket,"garbled-right","Bargteheide","ERROR")
+            val body=com.google.gson.JsonParser.parseString(socket.sent.last { it.contains("garbled-right") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
+            assertEquals("CORRECT",body.get("verified_verdict").asString)
+            assertEquals(card,asked?.second);assertTrue(asked!!.first>=32000)
+            withTimeout(1000) { while(client.state.value.currentWord==card) delay(5) }
+        }
+        // A second listen that says no keeps the error.
+        runClient(scenario="hotel",spokenCheck={ _,_,_ -> false to "Bargteheide" }) { client,socket,audio ->
+            socket.event("{\"setupComplete\":{}}");delay(60)
+            val card=client.state.value.currentWord
+            socket.event("{\"serverContent\":{\"turnComplete\":true}}")
+            recognized(socket,"Bargteheide");repeat(10) { audio.input?.invoke(ByteArray(3200)) }
+            assessment(socket,"garbled-wrong","Bargteheide","ERROR")
+            val body=com.google.gson.JsonParser.parseString(socket.sent.last { it.contains("garbled-wrong") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
+            assertEquals("ERROR",body.get("verified_verdict").asString);assertEquals(card,client.state.value.currentWord)
+        }
+    }
     /** A long, messy conversation with a scripted Gemini: after every learner turn LOCO must speak again or listen, never stall. */
     @Test fun longMessyConversationNeverGoesSilent()=runBlocking {
         for(level in listOf(Level.A1,Level.A2,Level.B1)) runClient(settings=Settings(level=level),scenario="hotel",assessmentRetryMs=150,cardFallbackMs=300,silenceGuardMs=500) { client,socket,audio ->
@@ -810,11 +836,11 @@ class GeminiIntegrationTest {
         fun open(){ listener.onOpen(this,Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(101).message("test").build()) }
         fun event(json:String){ listener.onMessage(this,json) }
     }
-    private suspend fun runClient(settings: Settings = Settings(), scenario: String = "daily", responseTimeoutMs: Long = 40000, wordAudio: Boolean = false, wordDelayMs:Long = 0, memory:String = "", known:Collection<String> = emptyList(), prepared:MutableList<String>?=null, planner:suspend (String,String,Level,Collection<String>)->List<com.locospanish.ai.tutor.LessonWord> = {_,_,_,_->suspendCancellableCoroutine { }}, taskLimit:Long=10000, assessmentRetryMs:Long=1800,waitForCard:Boolean=false,nativeAudio:Boolean=false,cardFallbackMs:Long=60000,silenceGuardMs:Long=60000, block:suspend (GeminiLiveClient,FakeSocket,FakeAudio)->Unit) {
+    private suspend fun runClient(settings: Settings = Settings(), scenario: String = "daily", responseTimeoutMs: Long = 40000, wordAudio: Boolean = false, wordDelayMs:Long = 0, memory:String = "", known:Collection<String> = emptyList(), prepared:MutableList<String>?=null, planner:suspend (String,String,Level,Collection<String>)->List<com.locospanish.ai.tutor.LessonWord> = {_,_,_,_->suspendCancellableCoroutine { }}, taskLimit:Long=10000, assessmentRetryMs:Long=1800,waitForCard:Boolean=false,nativeAudio:Boolean=false,cardFallbackMs:Long=60000,silenceGuardMs:Long=60000,spokenCheck:suspend (String,ByteArray,com.locospanish.ai.tutor.LessonWord)->Pair<Boolean,String>? = {_,_,_->null}, block:suspend (GeminiLiveClient,FakeSocket,FakeAudio)->Unit) {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
         val socket=FakeSocket(); val audio=FakeAudio()
-        val client=GeminiLiveClient(context,scope,http=socket,audioFactory={audio}, responseTimeoutMs=responseTimeoutMs,wordPlanner=planner,taskTimeoutMs=taskLimit,wordCache=null, assessmentRetryMs=assessmentRetryMs,waitForLessonCard=waitForCard,cardFallbackMs=cardFallbackMs,silenceGuardMs=silenceGuardMs, wordSpeakerFactory={ _,_ -> object: SupplementSpeaker { override suspend fun prepare(text:String) { prepared?.add(text) }; override suspend fun synthesize(text:String):ByteArray { if(!wordAudio) error("Wzorzec niedostępny w teście");delay(wordDelayMs);audio.words.add(text);return ByteArray(4) };override fun close() {} } }, supplementFactory = { object: SupplementSpeaker {
+        val client=GeminiLiveClient(context,scope,http=socket,audioFactory={audio}, responseTimeoutMs=responseTimeoutMs,wordPlanner=planner,taskTimeoutMs=taskLimit,wordCache=null, assessmentRetryMs=assessmentRetryMs,waitForLessonCard=waitForCard,cardFallbackMs=cardFallbackMs,silenceGuardMs=silenceGuardMs,spokenCheck=spokenCheck, wordSpeakerFactory={ _,_ -> object: SupplementSpeaker { override suspend fun prepare(text:String) { prepared?.add(text) }; override suspend fun synthesize(text:String):ByteArray { if(!wordAudio) error("Wzorzec niedostępny w teście");delay(wordDelayMs);audio.words.add(text);return ByteArray(4) };override fun close() {} } }, supplementFactory = { object: SupplementSpeaker {
             override suspend fun synthesize(text: String): ByteArray { if(!nativeAudio) error("No Polish voice installed");audio.nativeTexts.add(text);return ByteArray(8) { 2 } }
             override fun close() {}
         } })

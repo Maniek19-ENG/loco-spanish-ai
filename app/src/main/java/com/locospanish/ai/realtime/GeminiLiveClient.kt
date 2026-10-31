@@ -32,8 +32,12 @@ class GeminiLiveClient(
     private val assessmentRetryMs:Long=4000,
     private val waitForLessonCard:Boolean=false,
     private val cardFallbackMs:Long=4000,
-    private val silenceGuardMs:Long=2500
+    private val silenceGuardMs:Long=2500,
+    private val spokenCheck:suspend (String,ByteArray,LessonWord)->Pair<Boolean,String>? = { key,pcm,word -> SpokenWordCheck().said(key,pcm,word) },
+    private val secondListenMs:Long=1800
 ) {
+    private val micTape=MicTape()
+    @Volatile private var userTurnStartedAt=0L
     private var silenceJob: Job? = null
     private var silenceNudgedFor: String? = null
     @Volatile private var lastAudioAt=0L
@@ -238,6 +242,7 @@ class GeminiLiveClient(
             audio = device
             device.observeLevel { level -> scope.launch { if(epoch == generation && state.value.connected) mutableAudioLevel.value=level } }
             device.start(onInput = { bytes ->
+                micTape.add(bytes,android.os.SystemClock.elapsedRealtime())
                 if(epoch == generation && !state.value.muted && !openingPromptPending) {
                     val ws = socket
                     if(ws != null && (ws.queueSize() > 256000 || !ws.send(GeminiProtocol.audio(Base64.encodeToString(bytes,Base64.NO_WRAP)).toString()))) {
@@ -277,7 +282,7 @@ class GeminiLiveClient(
                 alignmentRetries=0
                 controlTurn = false;skipWordRequested=false;controlAction=null
                 val currentOwner=state.value.transcript.lastOrNull { it.role == "user" }?.id
-                if(currentOwner != referenceOwner) { wordJob?.cancel();queuedWordTurn=null;referenceGate=CompletableDeferred();referenceOwner=currentOwner }
+                if(currentOwner != referenceOwner) { userTurnStartedAt=android.os.SystemClock.elapsedRealtime();wordJob?.cancel();queuedWordTurn=null;referenceGate=CompletableDeferred();referenceOwner=currentOwner }
                 if(state.value.transcript.lastOrNull { it.role == "user" }?.id != supplementForUserId) readingSupplement = false
                 val input = state.value.transcript.lastOrNull { it.role == "user" }?.text.orEmpty()
                 watchAssessment(currentOwner,generation)
@@ -507,9 +512,19 @@ class GeminiLiveClient(
                     val modelHeard=if(args.str("verdict").uppercase()=="CORRECT" && args.str("confidence")=="CERTAIN") args.str("heard_text") else ""
                     learnerQuestion=helpTurn
                     previousAnswer=if(review.active) null else activeLessonWord?.let { active -> lastAcceptedWord?.takeIf { it.es!=active.es && WordAttemptPolicy.directAnswer(it,user?.text.orEmpty()) } ?: lastPresentedWord?.takeIf { previous -> previous.es != active.es && spokenWordTurn?.second != active.es && WordAttemptPolicy.directAnswer(previous,user?.text.orEmpty()) } }
-                    val checked=if(intent in setOf(DialogueIntent.Kind.SKIP,DialogueIntent.Kind.TOPIC)) Assessment("UNCERTAIN",user?.text.orEmpty(),explanation="Uczeń zmienia ćwiczenie lub temat. Uszanuj prośbę bez oceniania i bez zaliczania słowa.") else if(learnerQuestion) Assessment("UNCERTAIN",user?.text.orEmpty(),explanation="Uczeń zadał pytanie. Odpowiedz na pytanie, nie oceniaj go jak próby słowa.") else if(previousAnswer != null) com.locospanish.ai.tutor.Assessment("CORRECT",user?.text.orEmpty(),explanation="To poprawna odpowiedź na poprzednie słowo, a nie błąd nowego zadania. Nie zaliczaj nowego hasła; przypomnij bieżące pytanie bez zarzucania błędu.") else if(review.active || (settings.level == com.locospanish.ai.model.Level.A1 && !settings.previousVersionMode) || activeLessonWord?.let { WordAttemptPolicy.directAnswer(it,user?.text.orEmpty()) }==true) com.locospanish.ai.tutor.WordAttemptPolicy.evaluate(activeLessonWord,user?.text.orEmpty(),original,args.str("confidence") == "CERTAIN" && AssessmentPolicy.speech(args.str("heard_text")) == AssessmentPolicy.speech(user?.text.orEmpty()),modelHeard) else original
+                    var checked=if(intent in setOf(DialogueIntent.Kind.SKIP,DialogueIntent.Kind.TOPIC)) Assessment("UNCERTAIN",user?.text.orEmpty(),explanation="Uczeń zmienia ćwiczenie lub temat. Uszanuj prośbę bez oceniania i bez zaliczania słowa.") else if(learnerQuestion) Assessment("UNCERTAIN",user?.text.orEmpty(),explanation="Uczeń zadał pytanie. Odpowiedz na pytanie, nie oceniaj go jak próby słowa.") else if(previousAnswer != null) com.locospanish.ai.tutor.Assessment("CORRECT",user?.text.orEmpty(),explanation="To poprawna odpowiedź na poprzednie słowo, a nie błąd nowego zadania. Nie zaliczaj nowego hasła; przypomnij bieżące pytanie bez zarzucania błędu.") else if(review.active || (settings.level == com.locospanish.ai.model.Level.A1 && !settings.previousVersionMode) || activeLessonWord?.let { WordAttemptPolicy.directAnswer(it,user?.text.orEmpty()) }==true) com.locospanish.ai.tutor.WordAttemptPolicy.evaluate(activeLessonWord,user?.text.orEmpty(),original,args.str("confidence") == "CERTAIN" && AssessmentPolicy.speech(args.str("heard_text")) == AssessmentPolicy.speech(user?.text.orEmpty()),modelHeard) else original
                     requestedTopicChange=!review.active && !learnerQuestion && user != null && (intent==DialogueIntent.Kind.TOPIC || com.locospanish.ai.tutor.WordAttemptPolicy.newTopic(user.text))
-                    advanceWord=!learnerQuestion && previousAnswer == null && user != null && com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard)
+                    // Not credited: listen to the recorded answer once more with a model told which word was expected.
+                    var verifiedByAudio=false
+                    if(checked.verdict!="CORRECT" && !learnerQuestion && previousAnswer==null && user!=null && attemptedWord!=null && intent !in setOf(DialogueIntent.Kind.SKIP,DialogueIntent.Kind.TOPIC) &&
+                        !WordAttemptPolicy.needsHelp(user.text) && !WordAttemptPolicy.newTopic(user.text) && !WordAttemptPolicy.saysOtherLessonWord(attemptedWord,user.text)) {
+                        val clip=micTape.since(userTurnStartedAt-2500)
+                        val second=withTimeoutOrNull(secondListenMs) { runCatching { spokenCheck(taskKey,clip,attemptedWord) }.getOrNull() }
+                        Diag.log("SECOND LISTEN ${attemptedWord.es}: ${second?.let { "${it.first} heard='${it.second}'" } ?: "no answer"} (${clip.size/32000.0}s)")
+                        if(second?.first==true) { verifiedByAudio=true
+                            checked=Assessment("CORRECT",user.text,explanation="Drugi odsłuch nagrania potwierdził ${attemptedWord.es}; automatyczny zapis był błędny. Zalicz bez sugerowania błędu i bez żartu z pomyłki.") }
+                    }
+                    advanceWord=!learnerQuestion && previousAnswer == null && user != null && (verifiedByAudio || com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard))
                     if(advanceWord) { acceptedWordUserId=user?.id;lastAcceptedWord=attemptedWord }
                     Diag.log("GRADE user='${user?.text}' card=${attemptedWord?.es} gemini=${args.str("verdict")} -> ${checked.verdict} advance=$advanceWord question=$learnerQuestion")
                     // A garbled transcript of an accepted single word shows the card word; a sentence that contains it stays as said.
@@ -630,7 +645,7 @@ class GeminiLiveClient(
                     response.add("recent_roasts_to_avoid",com.google.gson.Gson().toJsonTree(previousRoasts.takeLast(8).map { it.take(220) }))
                     response.addProperty("roast_needs_new_idea",rejectedRoast)
                     response.addProperty("creative_roast_instruction",SpokenRoastPolicy.freshInstruction(settings,rejectedRoast))
-                    response.addProperty("roast_brief",SpokenRoastPolicy.creativeBrief(roastIndex++,previousRoasts)+SpokenRoastPolicy.mustHave(settings,user?.text.orEmpty(),attemptedWord?.es.orEmpty()))
+                    response.addProperty("roast_brief",SpokenRoastPolicy.creativeBrief(roastIndex++,previousRoasts)+SpokenRoastPolicy.mustHave(settings,user?.text.orEmpty(),attemptedWord?.es.orEmpty(),previousRoasts,roastIndex))
                     response.add("roast_context",GeminiProtocol.json("learner" to user?.text.orEmpty().take(400),"attempted_word" to attemptedWord?.es.orEmpty(),"attempted_meaning" to attemptedWord?.pl.orEmpty(),"verified_correction" to assessment?.correction.orEmpty(),"next_word" to next?.es.orEmpty(),"next_meaning" to next?.pl.orEmpty(),"verified_verdict" to assessment?.verdict.orEmpty()))
                     response.addProperty("roast_delivery", "Jeśli planned_roast nie jest puste, wypowiedz je dosłownie przed nowym słowem, z szyderczą intonacją. Nie zastępuj go grzeczną pochwałą ani łagodniejszym tekstem. To ta sama odpowiedź audio, bez dodatkowej tury. Przy potwierdzonym błędzie i włączonej korekcie możesz krótko teatralnie podnieść głos w polskiej docince; hiszpańska poprawka pozostaje spokojna. Przy CORRECT żart dotyczy sytuacji, nie jakości wymowy, akcentu lub fikcyjnego błędu. Potem od razu nauka i konkretne zadanie.")
                     if(requestedLearningTopic.isBlank()) response.addProperty("scenario_instruction","Pozostań w temacie ${Scenarios.get(scenario).title}; nowe słowa i pytania dopasuj do niego.")

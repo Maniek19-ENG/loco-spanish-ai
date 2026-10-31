@@ -101,9 +101,19 @@ object SpokenRoastPolicy {
             "Przy potwierdzonym ERROR i wysokim roaście krótko sparodiuj absurdalny sens KONKRETNEJ wpadki: udawany dialog albo teatralna reakcja postaci, z mocnym przekleństwem gdy STRONG. Oceniana wpadka to attempted_word i learner; next_word jest dopiero następnym zadaniem. Parodia ma mieć nową puentę do tej wypowiedzi, nie stałą kwestię. W audio odegraj kpinę intonacją i teatralnym oburzeniem; okazjonalny krótki półśmiech może uzupełnić puentę. Nie śmiej się obowiązkowo w każdej odpowiedzi i nie zastępuj słów śmiechem. Nie ucz błędnej wymowy; po polskim żarcie natychmiast prawdziwa poprawka i wskazówka. Przy niskim roaście zmniejsz ostrość zgodnie z suwakiem. Przy CORRECT nie wymyślaj błędu językowego, a przy UNCERTAIN żartuj z sytuacji, nie z rzekomej złej wymowy. Wypowiedz ripostę i naukę w tej samej odpowiedzi; bez dodatkowej tury i bez odczytywania instrukcji."
     }
     /** Per-turn checklist sent with every grade: the system prompt alone was diluted into polite teasing. */
-    fun mustHave(s: Settings, said: String, word: String): String {
+    private val spanishShouts=listOf("¡Joder!","¡Me cago en la leche!","¡Qué gilipollas!","¡Hostia puta!","¡Coño!","¡Tonto del culo!","¡Vete a la mierda!","¡Me cago en todo!","¡Qué cabrón!","¡Hijo de la gran puta, qué nivel!",
+        "¡Qué desastre, tío!","¡Anda ya, capullo!","¡Madre mía, qué paleto!","¡Qué asco de acento!","¡Joder, macho!","¡No me jodas!","¡Eres un mamón!","¡Qué mierda es esa!","¡Pringao!","¡Manda huevos!")
+    // Opening words and Spanish shouts of the last ripostes, named so the next one cannot reuse them.
+    private fun usedBits(recent: List<String>): List<String> = recent.takeLast(6).flatMap { text ->
+        listOfNotNull(text.trim().split(Regex("\\s+")).take(3).joinToString(" ").takeIf { it.isNotBlank() }) + Regex("¡[^!]{2,40}!").findAll(text).map { it.value }.toList()
+    }.distinct().take(14)
+    fun mustHave(s: Settings, said: String, word: String, recent: List<String> = emptyList(), turn: Int = 0): String {
         if(!enabled(s) || s.personality.profanity != Profanity.STRONG || s.personality.roast < 80) return ""
-        return " OBOWIĄZKOWO w tej ripoście, inaczej jest za słaba, jak dla dzieci: (1) mocne polskie przekleństwo (kurwa, pierdolony, jebany, ja pierdolę) w środku zdania, (2) hiszpański okrzyk jako OSOBNE krótkie zdanie po pauzie na końcu, nie w środku polskiego zdania — np. ¡Joder! ¡Qué gilipollas! ¡Me cago en todo! albo złośliwie „${word.take(60)}”, wymówione czysto po hiszpańsku, (3) bezpośrednia obelga w ucznia, (4) konkret z tego, co powiedział: „${said.take(80)}”. Dorosły, sprośny roast komika, nie żart z przedszkola. Jedno, dwa zdania."
+        val used=usedBits(recent)
+        val fresh=spanishShouts.filter { shout -> used.none { it.equals(shout,true) } }.ifEmpty { spanishShouts }
+        val shout=fresh[Math.floorMod(turn*7+said.length,fresh.size)]
+        return " ZAKAZ POWTÓREK — nie zaczynaj ani nie kończ tak jak ostatnio, nie używaj: ${used.joinToString(" | ").ifBlank { "—" }}. Hiszpański okrzyk tym razem: $shout (albo inny nowy, nigdy ten sam co wcześniej)." +
+            " OBOWIĄZKOWO w tej ripoście, inaczej jest za słaba, jak dla dzieci: (1) mocne polskie przekleństwo (kurwa, pierdolony, jebany, ja pierdolę) w środku zdania, (2) hiszpański okrzyk jako OSOBNE krótkie zdanie po pauzie na końcu, nie w środku polskiego zdania — np. ¡Joder! ¡Qué gilipollas! ¡Me cago en todo! albo złośliwie „${word.take(60)}”, wymówione czysto po hiszpańsku, (3) bezpośrednia obelga w ucznia, (4) konkret z tego, co powiedział: „${said.take(80)}”. Dorosły, sprośny roast komika, nie żart z przedszkola. Jedno, dwa zdania."
     }
     fun enabled(s: Settings) = !s.previousVersionMode && s.personality.roastMode && s.personality.roast > 0
     fun gentle(text: String) = false
