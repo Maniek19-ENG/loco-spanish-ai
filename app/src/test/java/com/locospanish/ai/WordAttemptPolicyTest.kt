@@ -109,6 +109,17 @@ class WordAttemptPolicyTest {
         val grade=WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka"))
         assertEquals("ERROR",grade.verdict)
     }
+    /** From a real session: the transcriber added "de" and the learner repeated the word; Gemini still said ERROR. */
+    @Test fun strayFillerAndRepetitionAroundTheRightWordStillPass() {
+        val tryOn=LessonWord("probar","przymierzać")
+        for(text in listOf("de probar probar","probar probar","eee probar","de probar")) {
+            val grade=WordAttemptPolicy.evaluate(tryOn,text,Assessment("ERROR",text,"probar","x"))
+            assertEquals(text,"CORRECT",grade.verdict)
+            assertTrue(text,WordAttemptPolicy.canAdvance(tryOn,text,grade))
+        }
+        for(text in listOf("profesora","Bargteheide","taco","próbować próbować kurwa szmaty"))
+            assertNotEquals(text,"CORRECT",WordAttemptPolicy.evaluate(tryOn,text,Assessment("ERROR",text,"probar","x")).verdict)
+    }
     @Test fun anotherLessonWordNeverPassesTheCard() {
         val today=LessonWord("hoy","dzisiaj")
         for(text in listOf("mañana","manana","mañana hoy","hoy mañana","Mañana.")) for(verdict in listOf("CORRECT","UNCERTAIN")) for(heard in listOf("","hoy")) {

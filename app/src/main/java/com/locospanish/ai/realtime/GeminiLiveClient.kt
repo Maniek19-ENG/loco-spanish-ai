@@ -29,7 +29,7 @@ class GeminiLiveClient(
     private val wordPlanner:suspend (String,String,Level,Collection<String>)->List<LessonWord> = { key,topic,level,excluded -> GeminiWordPlanner().generate(key,topic,level,excluded) },
     private val taskTimeoutMs:Long=15000,
     private val wordCache:LessonWordCache?=LessonWordCache(context),
-    private val assessmentRetryMs:Long=1800,
+    private val assessmentRetryMs:Long=4000,
     private val waitForLessonCard:Boolean=false,
     private val cardFallbackMs:Long=4000,
     private val silenceGuardMs:Long=2500
@@ -132,6 +132,9 @@ class GeminiLiveClient(
     private var queuedWordTurn: Pair<String,String>? = null
     private var referenceOwner: String? = null
     private var skipWordRequested=false
+    // Failed tries on the current card; after three LOCO gives the answer and moves on instead of looping on one word.
+    private var failedTries=0
+    private var failedTriesWord=""
     private var taskJob:Job?=null
     private var taskRequestTopic=""
     private var liveTaskRequest=""
@@ -224,6 +227,8 @@ class GeminiLiveClient(
         timeout = scope.launch { delay(25000); if(epoch == generation && !state.value.connected) fail("Upłynął czas łączenia. Sprawdź internet, klucz i dostępność Gemini.") }
     }
     private suspend fun event(e: JsonObject, generation: Int, reset: Boolean, settings: Settings, scenario: String, memory: String) {
+        // Server voice activity means the learner is talking even before any transcript arrives.
+        if(e.has("voiceActivity")) lastUserInputAt=android.os.SystemClock.elapsedRealtime()
         Diag.summary(e).let { line -> Diag.log(if(line=="IN audio") line else "$line | phase=${state.value.phase} word=${activeLessonWord?.es}") }
         if(e.has("error")) { val error = e.getAsJsonObject("error"); fail(GeminiProtocol.problem(error.get("code")?.asInt ?: 0,error.str("message"))); return }
         if(e.has("setupComplete")) {
@@ -513,7 +518,7 @@ class GeminiLiveClient(
                     assessment = checked
                     // The visible transcript shows what Gemini certainly heard, not the garbled automatic transcript.
                     val certainHeard=args.str("heard_text").trim().take(300)
-                    if(user!=null && args.str("confidence")=="CERTAIN" && certainHeard.isNotBlank() && AssessmentPolicy.speech(certainHeard)!=AssessmentPolicy.speech(user.text))
+                    if(user!=null && checked.verdict=="CORRECT" && args.str("confidence")=="CERTAIN" && certainHeard.isNotBlank() && AssessmentPolicy.speech(certainHeard)!=AssessmentPolicy.speech(user.text))
                         mutable.update { value -> value.copy(transcript=value.transcript.map { if(it.id==user.id) it.copy(text=certainHeard) else it }) }
                     val verdict = if(readingSupplement) "CORRECT" else checked.verdict
                     this.verdict = verdict; plannedRoast = if(verdict == args.str("verdict").uppercase() || (verdict == "UNCERTAIN" && args.str("verdict").uppercase() == "CORRECT")) args.str("roast").take(320) else ""
@@ -586,6 +591,12 @@ class GeminiLiveClient(
                     if(proposedTopic.isNotBlank() && requestedTopicChange) requestedLearningTopic = proposedTopic
                     val proposed = TeachingForm.complete(LessonWord(args.str("next_word"), args.str("next_translation")),args.str("next_article"))
                     // A requested new domain must never fall back to the old scenario's nouns.
+                    if(!review.active && !learnerQuestion && attemptedWord!=null && user!=null && assessment?.verdict in setOf("ERROR","UNCERTAIN")) {
+                        if(failedTriesWord!=attemptedWord.es) { failedTriesWord=attemptedWord.es;failedTries=0 }
+                        failedTries++
+                        if(failedTries>=3) { skipWordRequested=true;failedTries=0;Diag.log("STUCK on ${attemptedWord.es} -> answer and move on")
+                            response.addProperty("stuck_instruction","Trzecia nieudana próba: powiedz krótko poprawną odpowiedź ${attemptedWord.es} (${attemptedWord.pl}) z ostrą ripostą i przejdź do nowego zadania. Nie każ powtarzać tego słowa.") }
+                    }
                     val holdWord=if(review.active) !advanceWord else learnerQuestion || (settings.level == com.locospanish.ai.model.Level.A1 && activeLessonWord != null && !advanceWord && !requestedTopicChange && !skipWordRequested)
                     val selectedNext = if(review.active && advanceWord) review.advance(true) else if(holdWord) activeLessonWord else if(requestedLearningTopic.isNotBlank() && proposed.es.isBlank() && assessment?.verdict != "ERROR") null else
                         com.locospanish.ai.tutor.LessonTurnPolicy.next(scenario,proposed,knownVocabulary,taughtVocabulary+if(skipWordRequested) listOfNotNull(activeLessonWord?.es) else emptyList(),requestedLearningTopic.isBlank(),settings.level == com.locospanish.ai.model.Level.A1,if(assessment?.verdict == "ERROR") assessment?.correction.orEmpty() else "",preferScenario=requestedLearningTopic.isBlank(),level=taskSettings.level)

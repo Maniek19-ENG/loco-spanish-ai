@@ -17,8 +17,10 @@ object WordAttemptPolicy {
         }
         return text
     }
+    // Hesitation sounds and a stray preposition around the answer ("de probar probar", "eee probar") are not part of it.
+    private val fillers=Regex("^(?:(?:de|eh|ee+|em+|mm+|pues|bueno|entonces|yy+|no to|to)\\s+)+|(?:\\s+(?:eh|ee+|em+|mm+))+$",RegexOption.IGNORE_CASE)
     private fun trialText(text:String):String {
-        val clean=compactRepeatedTrial(text.trim().trim('¿','¡','?','!','.',',','"','«','»','“','”','‘','’').replace(Regex("\\s+")," "))
+        val clean=compactRepeatedTrial(text.trim().trim('¿','¡','?','!','.',',','"','«','»','“','”','‘','’').replace(Regex("\\s+")," ").replace(fillers,"").trim())
         return clean.replace(Regex("^(?:la palabra es|creo que es|se dice|es|to jest)\\s+",RegexOption.IGNORE_CASE),"")
             .trim().trim('¿','¡','?','!','.',',','"','«','»','“','”','‘','’')
     }
