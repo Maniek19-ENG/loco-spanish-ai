@@ -731,8 +731,11 @@ class GeminiLiveClient(
         if(owner==null) return
         val target=activeLessonWord ?: return
         val revision=lessonRevision
+        val started=android.os.SystemClock.elapsedRealtime()
         assessmentWatchdog=scope.launch {
             delay(if(immediate) 0L else assessmentRetryMs)
+            // LOCO already answered this turn aloud (e.g. a question like "¿Qué?"): a late re-grade would land on the next utterance.
+            if(!immediate && lastAudioAt>started) return@launch
             val user=state.value.transcript.lastOrNull { it.role=="user" } ?: return@launch
             if(epoch!=generation || !state.value.connected || controlTurn || user?.id!=owner ||
                 assessedUserId==owner || acceptedWordUserId==owner || assessmentNudgedFor==owner || lessonRevision!=revision) return@launch

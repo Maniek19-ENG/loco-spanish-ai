@@ -106,8 +106,10 @@ class WordAttemptPolicyTest {
             assertNotEquals("$target / $answer","CORRECT",heard.verdict)
             assertFalse(WordAttemptPolicy.canAdvance(LessonWord(target,"test"),answer,heard))
         }
-        val grade=WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka"))
-        assertEquals("ERROR",grade.verdict)
+        // Even Gemini's own ERROR on a one-sound slip asks for another try instead of mocking (real session: beber heard as "deber").
+        assertEquals("UNCERTAIN",WordAttemptPolicy.evaluate(LessonWord("el pasaporte","paszport"),"pasaporta",Assessment("ERROR","pasaporta","pasaporte","końcówka")).verdict)
+        assertEquals("UNCERTAIN",WordAttemptPolicy.evaluate(LessonWord("beber","pić"),"deber",Assessment("ERROR","deber","beber","x")).verdict)
+        assertEquals("CORRECT",WordAttemptPolicy.evaluate(LessonWord("beber","pić"),"beber curva",Assessment("ERROR","beber curva","beber","x")).verdict)
     }
     /** From a real session: the transcriber added "de" and the learner repeated the word; Gemini still said ERROR. */
     @Test fun strayFillerAndRepetitionAroundTheRightWordStillPass() {

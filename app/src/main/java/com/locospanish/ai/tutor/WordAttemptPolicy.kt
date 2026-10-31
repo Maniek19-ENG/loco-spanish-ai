@@ -18,7 +18,8 @@ object WordAttemptPolicy {
         return text
     }
     // Hesitation sounds and a stray preposition around the answer ("de probar probar", "eee probar") are not part of it.
-    private val fillers=Regex("^(?:(?:de|eh|ee+|em+|mm+|pues|bueno|entonces|yy+|no to|to)\\s+)+|(?:\\s+(?:eh|ee+|em+|mm+))+$",RegexOption.IGNORE_CASE)
+    // A Polish swear said with the answer ("beber, kurwa", transcribed "curva") is not part of it either.
+    private val fillers=Regex("^(?:(?:de|eh|ee+|em+|mm+|pues|bueno|entonces|yy+|no to|to|kurwa|curva|kurde|cholera)\\s+)+|(?:\\s+(?:eh|ee+|em+|mm+|kurwa|curva|kurde|cholera|mać))+$",RegexOption.IGNORE_CASE)
     private fun trialText(text:String):String {
         val clean=compactRepeatedTrial(text.trim().trim('¿','¡','?','!','.',',','"','«','»','“','”','‘','’').replace(Regex("\\s+")," ").replace(fillers,"").trim())
         return clean.replace(Regex("^(?:la palabra es|creo que es|se dice|es|to jest)\\s+",RegexOption.IGNORE_CASE),"")
@@ -138,7 +139,8 @@ object WordAttemptPolicy {
             return Assessment("CORRECT",text,explanation="Rozpoznano poprawną odpowiedź na ćwiczone słowo. Nie oceniaj wymowy na podstawie samej pisowni.")
         if(modelHeardTarget(word,text,modelHeard))
             return Assessment("CORRECT",text,explanation="Gemini usłyszało poprawne słowo ${word.es}; automatyczny zapis tekstu je przekręcił. Zalicz bez sugerowania błędu.")
-        if(singleTrial && nearMiss(word,text) && checked.verdict!="ERROR")
+        // One sound off is far more often the transcriber than the learner (beber → "deber"): ask again, never mock it.
+        if(singleTrial && nearMiss(word,text) && !saysOtherLessonWord(word,text))
             return Assessment("UNCERTAIN",text,explanation="Transkrypcja jest bliska słowa ${word.es}, ale niepewna. Nie śmiej się i nie zarzucaj błędu; poproś krótko o jeszcze jedną wyraźną próbę.")
         if(checked.verdict == "CORRECT" && !matches(word,text)) {
             return if(LessonTurnPolicy.singleWord(text.trim().trimEnd('.', '!', '?'))) Assessment("ERROR",text,word.es,"Ćwiczymy słowo „${word.pl}”. Ta odpowiedź nie odpowiada aktualnemu słowu.")
