@@ -540,7 +540,7 @@ class GeminiLiveClient(
                     if(!readingSupplement) {
                         assessedUserId=user?.id; assessedCorrection=checked.correction
                         var vocabulary=if(!learnerQuestion && (settings.level != com.locospanish.ai.model.Level.A1 || advanceWord)) AssessmentPolicy.vocabulary(args,checked,user?.id.orEmpty()) else emptyList()
-                        if(advanceWord && user != null && activeLessonWord != null && (com.locospanish.ai.tutor.WordAttemptPolicy.matches(activeLessonWord!!,user.text) || com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard)) && vocabulary.none { AssessmentPolicy.key(it.term) == AssessmentPolicy.key(activeLessonWord!!.es) }) {
+                        if(advanceWord && user != null && activeLessonWord != null && (verifiedByAudio || com.locospanish.ai.tutor.WordAttemptPolicy.matches(activeLessonWord!!,user.text) || com.locospanish.ai.tutor.WordAttemptPolicy.canAdvance(activeLessonWord,user.text,checked,modelHeard)) && vocabulary.none { AssessmentPolicy.key(it.term) == AssessmentPolicy.key(activeLessonWord!!.es) }) {
                             val target=activeLessonWord!!
                             vocabulary=vocabulary+LearningEvent("vocab:${user.id}:${AssessmentPolicy.key(target.es)}","known_word",AssessmentPolicy.display(target.es),"",target.pl,user.text)
                         }
