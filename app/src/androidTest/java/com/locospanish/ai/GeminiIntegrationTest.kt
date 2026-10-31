@@ -349,7 +349,7 @@ class GeminiIntegrationTest {
             socket.event("{\"setupComplete\":{}}")
             withTimeout(1000) { while(audio.words.isEmpty()) delay(5) }
             socket.event("{\"serverContent\":{\"turnComplete\":true}}")
-            for((index,wrong) in listOf("gato","perro","gato").withIndex()) {
+            for((index,wrong) in listOf("gato","perro").withIndex()) {
                 recognized(socket,wrong);assessment(socket,"wrong-$index",wrong,"ERROR")
                 val body=com.google.gson.JsonParser.parseString(socket.sent.last()).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
                 assertTrue(body.get("word_audio_played").asBoolean)
@@ -363,6 +363,10 @@ class GeminiIntegrationTest {
             socket.event("{\"serverContent\":{\"turnComplete\":true}}")
             withTimeout(1000) { while(audio.words.count { it=="la reserva" }<2) delay(5) }
             assertEquals(2,audio.words.count { it=="la reserva" })
+            // A third failed try gives the answer and moves on instead of looping on one card.
+            recognized(socket,"gato");assessment(socket,"wrong-2","gato","ERROR")
+            withTimeout(1000) { while(client.state.value.currentWord=="la reserva") delay(5) }
+            assertTrue(client.state.value.learning.none { it.kind=="known_word" && com.locospanish.ai.tutor.AssessmentPolicy.key(it.term)=="reserva" })
         }
     }
     /** A long, messy conversation with a scripted Gemini: after every learner turn LOCO must speak again or listen, never stall. */
