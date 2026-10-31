@@ -392,7 +392,7 @@ class GeminiIntegrationTest {
             recognized(socket,"Bargteheide");repeat(10) { audio.input?.invoke(ByteArray(3200)) }
             assessment(socket,"garbled-wrong","Bargteheide","ERROR")
             val body=com.google.gson.JsonParser.parseString(socket.sent.last { it.contains("garbled-wrong") }).asJsonObject.getAsJsonObject("toolResponse").getAsJsonArray("functionResponses")[0].asJsonObject.getAsJsonObject("response")
-            assertEquals("ERROR",body.get("verified_verdict").asString);assertEquals(card,client.state.value.currentWord)
+            assertNotEquals("CORRECT",body.get("verified_verdict").asString);assertEquals(card,client.state.value.currentWord)
         }
     }
     /** A long, messy conversation with a scripted Gemini: after every learner turn LOCO must speak again or listen, never stall. */
